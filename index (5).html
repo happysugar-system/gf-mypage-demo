@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="ja"><head><base target="_top"><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="UTF-8"><style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#17242b;background:#f4f6f6}*{box-sizing:border-box}body{margin:0}header{background:#153c36;color:white;padding:21px 18px;font-weight:700;letter-spacing:.05em}main{max-width:520px;margin:20px auto;padding:0 14px}.card{background:white;border-radius:16px;padding:22px;box-shadow:0 2px 12px #17332b13;margin-bottom:15px}h1{font-size:20px;margin:0 0 10px}h2{font-size:17px;margin:0 0 16px}.muted{color:#6c7b7c;font-size:13px;line-height:1.7}label{display:block;font-weight:600;margin:18px 0 7px}input{width:100%;font-size:16px;padding:13px;border:1px solid #ccd7d4;border-radius:9px}button{background:#166b56;color:white;border:0;border-radius:9px;padding:14px 17px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:14px}button:disabled{opacity:.5}.secondary{background:#e7eeeb;color:#214b42}.status{border-radius:10px;background:#e9f3ee;padding:14px;margin:14px 0;font-weight:700;color:#186b53}.step{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #edf0ef}.dot{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:#e9eeed;color:#5b6b67;flex:none}.step.current .dot{background:#166b56;color:white}.step.done .dot{background:#a2cdb6;color:#124c3c}.row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf0ef}.row span:first-child{color:#667572}.hidden{display:none}#message{margin-top:14px;font-size:14px;color:#aa3d30;white-space:pre-wrap}.notice{font-size:12px;color:#666;border-top:1px solid #eee;padding-top:14px;margin-top:20px}
+</style></head><body><header>GOLD FIRST <small>｜マイページ デモ</small></header><main>
+<section id="login" class="card"><h1>ログイン画面デモ</h1><p class="muted">LINEのマイページから開く想定の画面デモです。メール送信・本人認証はまだ行いません。実際の個人情報は入力しないでください。</p><button id="send" onclick="sendCode()">画面デモを開始</button><div id="message" role="status"></div></section>
+<section id="mypage" class="hidden"><div class="card"><h1>車両のお申込み状況</h1><p class="muted" id="welcome"></p><div class="status" id="status"></div><div id="steps"></div></div><div class="card"><h2>申込情報</h2><div class="row"><span>申込番号</span><strong id="receipt"></strong></div><div class="row" id="vehicleRow" style="display:none"><span>車番</span><strong id="vehicle"></strong></div><div class="row"><span>契約状況</span><strong id="contract"></strong></div><div class="row"><span>名変予定日</span><strong id="nameChange"></strong></div><div class="row"><span>引渡可能日</span><strong id="handover"></strong></div><button class="secondary" onclick="logout()">ログアウト</button></div></section>
+<p class="notice">GitHub Pages用の画面デモ｜架空データのみ。メール送信・本人認証・既存データ接続・会社担当者画面は未実装です。</p></main>
+<script>
+const $=id=>document.getElementById(id);
+const fixture={name:'テストドライバー',driverId:'D-DEMO001',receipt:'TEST-DEMO-001',vehicle:'',contract:'契約完了',nameChange:'未定',handover:'未定',stage:'車両準備中'};
+function sendCode(){showPage(fixture)}
+function verifyCode(){showPage(fixture)}
+function showPage(d){
+ $('login').classList.add('hidden');$('mypage').classList.remove('hidden');
+ $('welcome').textContent=d.name+' 様 / '+d.driverId;
+ $('status').textContent='現在：'+d.stage;
+ ['receipt','contract','nameChange','handover'].forEach(k=>$(k).textContent=d[k]||'未定');
+ $('vehicleRow').style.display=d.vehicle?'':'none';
+ $('vehicle').textContent=d.vehicle||'';
+ const steps=['申込受付','契約締結','車両準備中','名義変更','引渡可能'],current=steps.indexOf(d.stage);
+ $('steps').replaceChildren();
+ steps.forEach((s,i)=>{
+  const div=document.createElement('div');div.className='step '+(i<current?'done':i===current?'current':'');
+  const dot=document.createElement('span');dot.className='dot';dot.textContent=i<current?'✓':String(i+1);
+  const title=document.createElement('span');title.textContent=s;div.append(dot,title);$('steps').append(div);
+ });
+}
+function logout(){
+ $('mypage').classList.add('hidden');$('login').classList.remove('hidden');
+ $('message').textContent='';
+}
+</script></body></html>
