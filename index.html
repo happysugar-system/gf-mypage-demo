@@ -110,6 +110,10 @@ button:disabled{opacity:.5}
   border-bottom:1px solid #edf0ef;
 }
 .row span:first-child{color:#667572}
+.row strong{
+  text-align:right;
+  overflow-wrap:anywhere;
+}
 .hidden{display:none!important}
 #message{
   margin-top:14px;
@@ -207,6 +211,26 @@ button:disabled{opacity:.5}
       <strong id="receipt"></strong>
     </div>
 
+    <div class="row">
+      <span>受付状況</span>
+      <strong id="receptionStatus"></strong>
+    </div>
+
+    <div class="row">
+      <span>受付日時</span>
+      <strong id="receivedAt"></strong>
+    </div>
+
+    <div class="row">
+      <span>納車希望</span>
+      <strong id="deliveryWish"></strong>
+    </div>
+
+    <div class="row">
+      <span>稼働開始希望</span>
+      <strong id="startWish"></strong>
+    </div>
+
     <div class="row" id="vehicleRow" style="display:none">
       <span>車番</span>
       <strong id="vehicle"></strong>
@@ -227,6 +251,10 @@ button:disabled{opacity:.5}
       <strong id="handover"></strong>
     </div>
 
+    <button class="secondary" onclick="loadMyPage()">
+      最新情報に更新
+    </button>
+
     <button class="secondary" onclick="logout()">
       ログアウト
     </button>
@@ -236,7 +264,7 @@ button:disabled{opacity:.5}
 
 <p class="notice">
   GOLD FIRST ドライバーマイページ<br>
-  申込情報の連携は準備中です。
+  申込情報はGOLD FIRSTで確認・更新された内容を表示します。
 </p>
 
 </main>
@@ -244,8 +272,8 @@ button:disabled{opacity:.5}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
 <script>
-// 公開可能なPublishable Keyのみ使用。
-// secret / service_roleキーは絶対に記載しない。
+// 公開可能なPublishableキーのみ使用。
+// Secretキー・service_roleキーは絶対に記載しない。
 
 const SUPABASE_URL =
   'https://tgxrnrqxafytyqfwwsag.supabase.co';
@@ -292,19 +320,31 @@ function showError(message){
   showOnly('errorPage');
 }
 
-// 既存のマイページ表示機能。
-// 実際の申込データ接続後に使用する。
+/**
+ * マイページ表示
+ * 既存の5段階の進捗表示を維持する。
+ */
 function showPage(d){
+
   $('welcome').textContent =
-    (d.name || '') + ' 様 / ' + (d.driverId || '');
+    (d.name ? d.name + ' 様 / ' : '') +
+    (d.driverId || '');
 
   $('status').textContent =
     '現在：' + (d.stage || '確認中');
 
-  ['receipt','contract','nameChange','handover']
-    .forEach(k => {
-      $(k).textContent = d[k] || '未定';
-    });
+  [
+    'receipt',
+    'receptionStatus',
+    'receivedAt',
+    'deliveryWish',
+    'startWish',
+    'contract',
+    'nameChange',
+    'handover'
+  ].forEach(k => {
+    $(k).textContent = d[k] || '未定';
+  });
 
   $('vehicleRow').style.display =
     d.vehicle ? '' : 'none';
@@ -324,6 +364,7 @@ function showPage(d){
   $('steps').replaceChildren();
 
   steps.forEach((step,i) => {
+
     const el = document.createElement('div');
 
     el.className =
@@ -333,6 +374,7 @@ function showPage(d){
 
     const dot = document.createElement('span');
     dot.className = 'dot';
+
     dot.textContent =
       i < current ? '✓' : String(i + 1);
 
@@ -346,8 +388,12 @@ function showPage(d){
   showOnly('mypage');
 }
 
-// メール認証
+/**
+ * メールリンク認証
+ * 既存の動作を維持する。
+ */
 async function sendCode(){
+
   if(!authClient){
     setMessage('Supabaseの設定を確認してください');
     return;
@@ -364,6 +410,7 @@ async function sendCode(){
   setMessage('ログインリンクを送信中…');
 
   try{
+
     const {error} =
       await authClient.auth.signInWithOtp({
         email,
@@ -380,16 +427,23 @@ async function sendCode(){
     );
 
   }catch(err){
+
     setMessage(
       '送信できませんでした：' + err.message
     );
+
   }finally{
     $('send').disabled = false;
   }
 }
 
-// Supabase AuthとDriverIDの紐付けを確認
+/**
+ * 139-C
+ * 本人のDriverIDを照合し、
+ * 紐付く申込情報だけ取得する。
+ */
 async function loadMyPage(){
+
   if(!authClient) return;
 
   const currentCheck = ++checkSequence;
@@ -397,6 +451,8 @@ async function loadMyPage(){
   showOnly('loading');
 
   try{
+
+    // ① 認証ユーザー確認
     const {data:userData,error:userError} =
       await authClient.auth.getUser();
 
@@ -407,7 +463,8 @@ async function loadMyPage(){
       return;
     }
 
-    const {data:link,error} =
+    // ② DriverIDの紐付け確認
+    const {data:link,error:linkError} =
       await authClient
         .from('gf_mypage_links')
         .select('driver_id')
@@ -416,40 +473,110 @@ async function loadMyPage(){
 
     if(currentCheck !== checkSequence) return;
 
-    if(error){
-      throw error;
-    }
+    if(linkError) throw linkError;
 
     if(!link || !link.driver_id){
+
       showPending(
         '本人確認待ち',
         'メール認証が完了しました。' +
         'GOLD FIRSTで登録情報を確認しています。' +
         '確認が完了するまでお待ちください。'
       );
+
       return;
     }
 
-    // DriverIDの紐付けは確認できたが、
-    // 申込情報の実データ接続はまだ行わない。
-    showPending(
-      '申込情報の連携準備中',
-      'DriverIDとの紐付けを確認しました。' +
-      '申込情報の連携が完了するまでお待ちください。'
-    );
+    // ③ 本人の申込情報を取得
+    // Supabase側のRLSでも本人のDriverIDに制限
+    const {data:applications,error:appError} =
+      await authClient
+        .from('gf_mypage_applications')
+        .select(
+          'receipt_id,driver_id,' +
+          'received_at,reception_status,' +
+          'contract_status,contract_updated_at,' +
+          'delivery_wish,start_wish,updated_at'
+        )
+        .eq('driver_id',link.driver_id)
+        .order('updated_at',{ascending:false})
+        .order('receipt_id',{ascending:false})
+        .limit(1);
 
-  }catch(err){
     if(currentCheck !== checkSequence) return;
 
+    if(appError) throw appError;
+
+    if(!applications || applications.length === 0){
+
+      showPending(
+        '申込情報の連携待ち',
+        'DriverIDとの紐付けを確認しました。' +
+        '申込情報が登録されるまでお待ちください。'
+      );
+
+      return;
+    }
+
+    const app = applications[0];
+
+    // 念のためDriverIDを再照合
+    if(app.driver_id !== link.driver_id){
+      throw new Error('DriverIDの照合に失敗しました');
+    }
+
+    // ④ 受付完了のみ進捗確定
+    // 契約締結は電子署名完了データの連携後に反映
+    // 車両準備・名変・引渡は車両台帳連携後に反映
+    const stage = '申込受付';
+
+    // ⑤ 既存の表示機能を利用
+    showPage({
+      name: '',
+      driverId: link.driver_id,
+      stage: stage,
+
+      receipt: app.receipt_id,
+      receptionStatus:
+        app.reception_status || '確認中',
+      receivedAt:
+        app.received_at || '未設定',
+      deliveryWish:
+        app.delivery_wish || '未定',
+      startWish:
+        app.start_wish || '未定',
+      contract:
+        app.contract_status || '未設定',
+
+      // 未確定の車両情報は表示しない
+      vehicle: '',
+      nameChange: '',
+      handover: ''
+    });
+
+  }catch(err){
+
+    if(currentCheck !== checkSequence) return;
+
+    // 個人情報・秘密キーはログに出さない
+    console.error(
+      'マイページ情報取得エラー',
+      err.code || err.name || 'unknown'
+    );
+
     showError(
-      '登録情報の取得中にエラーが発生しました。\n' +
-      (err.message || String(err))
+      '申込情報を取得できませんでした。' +
+      '時間をおいて再度お試しください。'
     );
   }
 }
 
-// ログアウト
+/**
+ * ログアウト
+ * 既存動作を維持
+ */
 async function logout(){
+
   if(!authClient) return;
 
   ++checkSequence;
@@ -458,9 +585,12 @@ async function logout(){
     await authClient.auth.signOut();
 
   if(error){
+
     showError(
-      'ログアウトに失敗しました：' + error.message
+      'ログアウトに失敗しました：' +
+      error.message
     );
+
     return;
   }
 
@@ -468,17 +598,22 @@ async function logout(){
   setMessage('ログアウトしました');
 }
 
-// 初期化
+/**
+ * Supabase初期化
+ */
 async function init(){
+
   if(
     !window.supabase ||
     !SUPABASE_PUBLISHABLE_KEY.startsWith(
       'sb_publishable_'
     )
   ){
+
     showError(
       'Supabaseの設定を確認してください'
     );
+
     return;
   }
 
@@ -498,10 +633,12 @@ async function init(){
     await authClient.auth.getSession();
 
   if(error){
+
     showError(
       '認証状態の確認に失敗しました：' +
       error.message
     );
+
     return;
   }
 
@@ -513,9 +650,10 @@ async function init(){
 
   authClient.auth.onAuthStateChange(
     (event,session) => {
+
       if(event === 'SIGNED_IN' && session){
-        // Auth内部処理との競合を避けるため
-        // 次のタスクでユーザー情報を確認。
+
+        // Auth内部処理との競合を回避
         setTimeout(() => loadMyPage(),0);
       }
 
