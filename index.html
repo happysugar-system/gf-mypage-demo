@@ -528,7 +528,34 @@ async function loadMyPage(){
     // ④ 受付完了のみ進捗確定
     // 契約締結は電子署名完了データの連携後に反映
     // 車両準備・名変・引渡は車両台帳連携後に反映
-    const stage = '申込受付';
+    
+/**
+ * GOLD FIRST マイページ
+ * 148-A：契約状況から進捗を判定
+ *
+ * 車両準備・名義変更・引渡可能は
+ * 契約状況だけでは判定しない。
+ */
+function getProgressStage(application) {
+  const contractStatus = String(
+    application?.contract_status ?? ''
+  ).trim();
+
+  const completedStatuses = [
+    '契約締結済み',
+    '契約締結済',
+    '契約完了'
+  ];
+
+  if (completedStatuses.includes(contractStatus)) {
+    return '契約締結';
+  }
+
+  return '申込受付';
+}
+
+const stage = getProgressStage(application);
+
 
     // ⑤ 既存の表示機能を利用
     showPage({
