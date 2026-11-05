@@ -172,6 +172,14 @@ button:disabled{opacity:.5}
     現在、GOLD FIRSTで登録情報を確認しています。
   </p>
 
+  <div id="identityFields" class="hidden">
+    <label for="identityName">氏名（必須）</label>
+    <input id="identityName" type="text" maxlength="80" autocomplete="name" placeholder="例：山田 太郎">
+    <label for="identityPhone">電話番号（必須）</label>
+    <input id="identityPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="例：09012345678">
+    <p class="muted">本人確認のため管理者が確認します。DriverIDは入力不要です。</p>
+  </div>
+  <button id="saveIdentityButton" class="hidden" onclick="saveIdentity()">本人確認情報を保存する</button>
   <button id="registerRequestButton" class="hidden" onclick="submitRegistrationRequest()">
     初回登録を申請する
   </button>
@@ -321,6 +329,8 @@ function showPending(title,text,allowRequest = false){
   $('registerRequestButton').classList.toggle('hidden', !allowRequest);
   $('registerRequestButton').disabled = registrationSubmitting;
   $('registrationMessage').textContent = '';
+  $('identityFields').classList.toggle('hidden', !allowRequest);
+  $('saveIdentityButton').classList.add('hidden');
   showOnly('pending');
 }
 
@@ -331,7 +341,7 @@ function showPending(title,text,allowRequest = false){
 async function showRegistrationState(userId, currentCheck){
   const {data, error} = await authClient
     .from('gf_mypage_registration_requests')
-    .select('status,created_at')
+    .select('status,created_at,full_name,phone_number')
     .eq('auth_user_id',userId)
     .maybeSingle();
 
@@ -351,6 +361,11 @@ async function showRegistrationState(userId, currentCheck){
       '初回登録申請を受け付けています。' +
       'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
     );
+    $('identityFields').classList.remove('hidden');
+    $('saveIdentityButton').classList.remove('hidden');
+    $('identityName').value = data.full_name || '';
+    $('identityPhone').value = data.phone_number || '';
+    $('registrationMessage').textContent = data.full_name && data.phone_number ? '本人確認情報は保存済みです。修正もできます。' : '氏名と電話番号を入力して保存してください。';
   }else if(data.status === 'rejected'){
     showPending(
       '登録内容の確認が必要です',
@@ -396,9 +411,11 @@ async function submitRegistrationRequest(){
       return;
     }
 
+    const identity = readIdentity();
+    if(!identity) return;
     const {error:insertError} = await authClient
       .from('gf_mypage_registration_requests')
-      .insert({auth_user_id:userData.user.id});
+      .insert({auth_user_id:userData.user.id,...identity});
 
     // 二重送信などで一意制約に当たっても現在の状態を再取得
     if(insertError && insertError.code !== '23505'){
@@ -413,6 +430,35 @@ async function submitRegistrationRequest(){
     registrationSubmitting = false;
     $('registerRequestButton').disabled = false;
   }
+}
+
+
+function readIdentity(){
+  const full_name = $('identityName').value.trim();
+  const phone_number = $('identityPhone').value.replace(/[\sー－-]/g,'').trim();
+  if(!full_name || full_name.length > 80 || !/^0[0-9]{9,10}$/.test(phone_number)){
+    $('registrationMessage').textContent = '氏名と電話番号（ハイフンなし10～11桁）を入力してください。';
+    return null;
+  }
+  return {full_name,phone_number};
+}
+async function saveIdentity(){
+  const identity = readIdentity();
+  if(!identity || !authClient) return;
+  $('saveIdentityButton').disabled = true;
+  $('registrationMessage').textContent = '保存中…';
+  try{
+    const {data:user,error:userError} = await authClient.auth.getUser();
+    if(userError || !user.user) throw new Error('認証エラー');
+    const {data,error} = await authClient.from('gf_mypage_registration_requests')
+      .update(identity).eq('auth_user_id',user.user.id).eq('status','pending')
+      .select('auth_user_id').maybeSingle();
+    if(error || !data) throw error || new Error('更新対象なし');
+    $('registrationMessage').textContent = '本人確認情報を保存しました。管理者の確認をお待ちください。';
+  }catch(err){
+    $('registrationMessage').textContent = '保存できませんでした。時間をおいて再度お試しください。';
+    console.error('本人確認情報の保存エラー',err.code || err.name || 'unknown');
+  }finally{$('saveIdentityButton').disabled = false;}
 }
 
 function showError(message){
