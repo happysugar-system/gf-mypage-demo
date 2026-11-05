@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GOLD FIRST｜ドライバー登録承認</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#18302b;background:#f3f6f5}*{box-sizing:border-box}body{margin:0}header{background:#153c36;color:white;padding:20px 18px;font-weight:750;letter-spacing:.03em}main{max-width:820px;margin:24px auto;padding:0 16px}.card{background:white;border-radius:16px;padding:22px;margin-bottom:16px;box-shadow:0 2px 14px #17332b12}h1{font-size:21px;margin:0 0 12px}h2{font-size:17px;margin:0 0 12px}p{line-height:1.7}.muted{color:#637571;font-size:13px}.hidden{display:none!important}label{display:block;margin:16px 0 7px;font-weight:650}input{width:100%;padding:13px;border:1px solid #ccd9d5;border-radius:9px;font-size:16px}button{background:#176a55;color:white;border:0;border-radius:9px;padding:12px 16px;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:default}.secondary{background:#e8f0ed;color:#205346}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.notice{padding:12px 14px;border-radius:9px;background:#edf5f1;color:#205c48;font-size:13px}.error{color:#a22e2e;white-space:pre-wrap}.item{border:1px solid #e2ebe7;border-radius:12px;padding:16px;margin-top:12px}.pill{font-size:12px;background:#fff1d7;color:#78511d;border-radius:99px;padding:5px 9px;font-weight:700}.itemhead{display:flex;justify-content:space-between;gap:10px;align-items:center}.id{font-family:ui-monospace,monospace;font-size:12px;overflow-wrap:anywhere;color:#526861}.stat{font-size:27px;font-weight:800}.toprow{display:flex;justify-content:space-between;align-items:center;gap:12px}a{color:#176a55}
+</style>
+</head>
+<body>
+<header>GOLD FIRST ｜ 管理者アプリ</header>
+<main>
+<section id="loading" class="card"><h1>認証状態を確認しています</h1><p class="muted">しばらくお待ちください。</p></section>
+<section id="login" class="card hidden">
+<h1>管理者ログイン</h1><p class="muted">管理者として登録済みのメールアドレスでログインしてください。ログインリンクを送信します。</p>
+<label for="email">メールアドレス</label><input id="email" type="email" autocomplete="email" placeholder="example@example.com">
+<div class="actions"><button id="send" type="button">ログインリンクを送信</button></div><p id="loginMessage" role="status" class="muted"></p>
+</section>
+<section id="denied" class="card hidden"><h1>管理者権限を確認できません</h1><p>ログインはできていますが、このアカウントに管理者権限がありません。</p><p class="muted">管理者登録後に「再確認」を押してください。</p><div class="actions"><button id="retryDenied">再確認</button><button class="secondary logout">ログアウト</button></div></section>
+<section id="errorPage" class="card hidden"><h1>情報を取得できませんでした</h1><p id="errorText" class="error"></p><div class="actions"><button id="retryError">再確認</button><button class="secondary logout">ログアウト</button></div></section>
+<section id="dashboard" class="hidden">
+<div class="card"><div class="toprow"><div><h1>ドライバー登録申請</h1><p class="muted" id="adminLabel"></p></div><div><div class="stat" id="count">0</div><div class="muted">承認待ち</div></div></div><div class="notice">現在は確認専用です。本人確認・DriverID照合・承認処理は次の段階で追加します。</div><div class="actions"><button id="refresh">一覧を更新</button><button class="secondary logout">ログアウト</button></div></div>
+<div class="card"><h2>承認待ちの申請</h2><p id="listMessage" class="muted" role="status"></p><div id="requests"></div></div>
+</section>
+<p class="muted">管理者の認証とデータアクセスはSupabase側の権限で制御します。URLを知っているだけでは一覧を取得できません。</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+'use strict';
+// 公開可能なキーだけを使う。Secret / service_role は絶対に置かない。
+const SUPABASE_URL='https://tgxrnrqxafytyqfwwsag.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_Xu-kPNJqnHFGoGb9rI5SVg_h1B2f-dW';
+// GitHub Pagesに置いたページの実際のURLへ戻る（クエリやハッシュは含めない）。
+const REDIRECT_URL=location.origin+location.pathname;
+const $=id=>document.getElementById(id);
+let client=null;let generation=0;
+function showOnly(id){['loading','login','denied','errorPage','dashboard'].forEach(x=>$(x).classList.toggle('hidden',x!==id));}
+function fail(message){$('errorText').textContent=message;showOnly('errorPage');}
+function fmt(value){if(!value)return '未設定';const d=new Date(value);return Number.isNaN(d.getTime())?'未設定':new Intl.DateTimeFormat('ja-JP',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Tokyo'}).format(d);}
+async function login(){const email=$('email').value.trim();if(!email){$('loginMessage').textContent='メールアドレスを入力してください。';return;}$('send').disabled=true;$('loginMessage').textContent='送信中…';try{const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:REDIRECT_URL,shouldCreateUser:false}});if(error)throw error;$('loginMessage').textContent='ログインリンクを送信しました。メールを確認してください。';}catch(e){$('loginMessage').textContent='送信に失敗しました。管理者登録とメールアドレスを確認してください。';}finally{$('send').disabled=false;}}
+async function load(){const seq=++generation;showOnly('loading');try{const {data,error}=await client.auth.getUser();if(seq!==generation)return;if(error||!data.user){showOnly('login');return;}const uid=data.user.id;const {data:admin,error:adminError}=await client.from('gf_mypage_admins').select('auth_user_id').eq('auth_user_id',uid).maybeSingle();if(seq!==generation)return;if(adminError)throw adminError;if(!admin){showOnly('denied');return;}$('adminLabel').textContent='管理者ログイン中';showOnly('dashboard');await refresh(seq);}catch(e){if(seq!==generation)return;console.error('admin load error',e.code||e.name||'unknown');fail('管理者情報を取得できませんでした。Supabaseのテーブル・RLS設定を確認してください。');}}
+async function refresh(seq=generation){$('listMessage').textContent='読み込み中…';$('requests').replaceChildren();const {data,error}=await client.from('gf_mypage_registration_requests').select('auth_user_id,status,created_at').eq('status','pending').order('created_at',{ascending:true}).limit(200);if(seq!==generation)return;if(error){console.error('requests fetch error',error.code||'unknown');$('listMessage').textContent='申請一覧を取得できませんでした。管理者用RLSを確認してください。';return;}$('count').textContent=String(data.length);$('listMessage').textContent=data.length?'申請日時の古い順に表示しています（最大200件）。':'承認待ちの申請はありません。';for(const r of data){const item=document.createElement('article');item.className='item';const head=document.createElement('div');head.className='itemhead';const title=document.createElement('strong');title.textContent='登録申請';const badge=document.createElement('span');badge.className='pill';badge.textContent='確認待ち';head.append(title,badge);const date=document.createElement('p');date.className='muted';date.textContent='申請日時：'+fmt(r.created_at);const id=document.createElement('div');id.className='id';id.textContent='認証ユーザーID：'+r.auth_user_id;item.append(head,date,id);$('requests').append(item);}}
+async function logout(){++generation;const {error}=await client.auth.signOut();if(error){fail('ログアウトに失敗しました。再度お試しください。');return;}showOnly('login');$('loginMessage').textContent='ログアウトしました。';}
+async function init(){if(!window.supabase){fail('Supabaseライブラリを読み込めませんでした。');return;}client=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}});$('send').addEventListener('click',login);$('retryDenied').addEventListener('click',load);$('retryError').addEventListener('click',load);$('refresh').addEventListener('click',()=>refresh());document.querySelectorAll('.logout').forEach(b=>b.addEventListener('click',logout));client.auth.onAuthStateChange((event)=>{if(event==='SIGNED_IN'||event==='SIGNED_OUT')setTimeout(load,0);});await load();}
+init();
+</script>
+</body></html>
