@@ -172,6 +172,11 @@ button:disabled{opacity:.5}
     現在、GOLD FIRSTで登録情報を確認しています。
   </p>
 
+  <button id="registerRequestButton" class="hidden" onclick="submitRegistrationRequest()">
+    初回登録を申請する
+  </button>
+  <p id="registrationMessage" class="muted" role="status"></p>
+
   <button class="secondary" onclick="loadMyPage()">
     登録状況を再確認
   </button>
@@ -288,6 +293,7 @@ const $ = id => document.getElementById(id);
 
 let authClient = null;
 let checkSequence = 0;
+let registrationSubmitting = false;
 
 function setMessage(message){
   $('message').textContent = message;
@@ -309,10 +315,104 @@ function showLogin(){
   showOnly('login');
 }
 
-function showPending(title,text){
+function showPending(title,text,allowRequest = false){
   $('pendingTitle').textContent = title;
   $('pendingText').textContent = text;
+  $('registerRequestButton').classList.toggle('hidden', !allowRequest);
+  $('registerRequestButton').disabled = registrationSubmitting;
+  $('registrationMessage').textContent = '';
   showOnly('pending');
+}
+
+/**
+ * 151-C：本人の登録申請状態を取得する。
+ * DriverIDは申請者自身には設定させない。
+ */
+async function showRegistrationState(userId, currentCheck){
+  const {data, error} = await authClient
+    .from('gf_mypage_registration_requests')
+    .select('status,created_at')
+    .eq('auth_user_id',userId)
+    .maybeSingle();
+
+  if(currentCheck !== checkSequence) return;
+  if(error) throw error;
+
+  if(!data){
+    showPending(
+      '初回登録のご案内',
+      'メール認証が完了しました。初回登録を申請してください。' +
+      '申請後、GOLD FIRSTが本人確認を行います。',
+      true
+    );
+  }else if(data.status === 'pending'){
+    showPending(
+      '管理者確認待ち',
+      '初回登録申請を受け付けています。' +
+      'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
+    );
+  }else if(data.status === 'rejected'){
+    showPending(
+      '登録内容の確認が必要です',
+      '登録申請についてGOLD FIRSTへのお問い合わせが必要です。' +
+      '申請者ご自身では再申請できません。'
+    );
+  }else{
+    showPending(
+      'DriverIDの連携待ち',
+      '登録申請は承認済みですが、マイページの利用設定がまだ完了していません。' +
+      'GOLD FIRSTにお問い合わせください。'
+    );
+  }
+}
+
+/**
+ * 151-C：ログイン本人の初回登録申請を1件だけ作成する。
+ * 申請の承認・DriverID付与は管理者側で別途実装する。
+ */
+async function submitRegistrationRequest(){
+  if(!authClient || registrationSubmitting) return;
+
+  registrationSubmitting = true;
+  $('registerRequestButton').disabled = true;
+  $('registrationMessage').textContent = '申請を送信しています…';
+
+  try{
+    const {data:userData,error:userError} =
+      await authClient.auth.getUser();
+    if(userError || !userData.user){
+      throw new Error('ログイン状態を確認できませんでした');
+    }
+
+    // 送信直前にも既存のDriverID紐付けを確認する
+    const {data:link,error:linkError} = await authClient
+      .from('gf_mypage_links')
+      .select('driver_id')
+      .eq('auth_user_id',userData.user.id)
+      .maybeSingle();
+    if(linkError) throw linkError;
+    if(link && link.driver_id){
+      await loadMyPage();
+      return;
+    }
+
+    const {error:insertError} = await authClient
+      .from('gf_mypage_registration_requests')
+      .insert({auth_user_id:userData.user.id});
+
+    // 二重送信などで一意制約に当たっても現在の状態を再取得
+    if(insertError && insertError.code !== '23505'){
+      throw insertError;
+    }
+    await loadMyPage();
+  }catch(err){
+    $('registrationMessage').textContent =
+      '申請を完了できませんでした。時間をおいて再度お試しください。';
+    console.error('登録申請エラー',err.code || err.name || 'unknown');
+  }finally{
+    registrationSubmitting = false;
+    $('registerRequestButton').disabled = false;
+  }
 }
 
 function showError(message){
@@ -476,14 +576,7 @@ async function loadMyPage(){
     if(linkError) throw linkError;
 
     if(!link || !link.driver_id){
-
-      showPending(
-        '本人確認待ち',
-        'メール認証が完了しました。' +
-        'GOLD FIRSTで登録情報を確認しています。' +
-        '確認が完了するまでお待ちください。'
-      );
-
+      await showRegistrationState(userData.user.id,currentCheck);
       return;
     }
 
