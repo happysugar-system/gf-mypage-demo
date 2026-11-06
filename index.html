@@ -144,9 +144,9 @@ button:disabled{opacity:.5}
 </section>
 
 <section id="login" class="card hidden">
-  <h1>メールリンクでログイン</h1>
+  <h1>メール認証でログイン</h1>
   <p class="muted">
-    登録したメールアドレスにログインリンクを送信します。
+    メールアドレスに8桁の認証コードを送信します。
   </p>
 
   <label for="email">メールアドレス</label>
@@ -158,10 +158,17 @@ button:disabled{opacity:.5}
   >
 
   <button id="send" onclick="sendCode()">
-    ログインリンクを送信
+    認証コードを送信
   </button>
 
   <div id="message" role="status"></div>
+
+  <div id="otpFields" class="hidden">
+    <label for="otpCode">メールに届いた8桁の認証コード</label>
+    <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{8}" placeholder="8桁のコード">
+    <button id="verifyOtpButton" onclick="verifyOtpCode()">認証してログイン</button>
+    <p id="otpMessage" class="muted" role="status"></p>
+  </div>
 </section>
 
 <section id="pending" class="card hidden">
@@ -553,7 +560,9 @@ async function sendCode(){
   }
 
   $('send').disabled = true;
-  setMessage('ログインリンクを送信中…');
+  setMessage('認証メールを送信中…');
+  $('otpFields').classList.add('hidden');
+  $('otpCode').value = '';
 
   try{
 
@@ -567,10 +576,8 @@ async function sendCode(){
 
     if(error) throw error;
 
-    setMessage(
-      'ログイン用メールを送信しました。' +
-      '届いたリンクを開いてください。'
-    );
+    $('otpFields').classList.remove('hidden');
+    setMessage('認証コードを送信しました。メールに届いた8桁のコードを入力してください。');
 
   }catch(err){
 
@@ -580,6 +587,32 @@ async function sendCode(){
 
   }finally{
     $('send').disabled = false;
+  }
+}
+
+/**
+ * メールに届いた8桁のOTPコードでログインする。
+ */
+async function verifyOtpCode(){
+  if(!authClient) return;
+  const email = $('email').value.trim();
+  const token = $('otpCode').value.trim();
+  if(!email || !/^[0-9]{8}$/.test(token)){
+    $('otpMessage').textContent = '8桁の認証コードを入力してください。';
+    return;
+  }
+  $('verifyOtpButton').disabled = true;
+  $('otpMessage').textContent = '認証中…';
+  try{
+    const {error} = await authClient.auth.verifyOtp({email,token,type:'email'});
+    if(error) throw error;
+    $('otpMessage').textContent = '';
+    await loadMyPage();
+  }catch(err){
+    $('otpMessage').textContent = '認証できませんでした。コードを確認するか、再送信してください。';
+    console.error('OTP認証エラー',err.code || err.name || 'unknown');
+  }finally{
+    $('verifyOtpButton').disabled = false;
   }
 }
 
