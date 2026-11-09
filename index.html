@@ -723,9 +723,11 @@ async function loadMyPage(){
       '契約締結済',
       '契約完了'
     ];
-    const stage = completedStatuses.includes(contractStatus)
-      ? '契約締結'
-      : '申込受付';
+    
+const stage = completedStatuses.includes(contractStatus)
+  ? '車両準備中'
+  : '申込受付';
+
 
     // ⑤ 既存の表示機能を利用
     showPage({
