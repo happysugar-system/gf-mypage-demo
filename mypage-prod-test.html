@@ -262,7 +262,7 @@ button:disabled{opacity:.5}
     </div>
 
     <div class="row">
-      <span>名変予定日</span>
+      <span>名義変更日</span>
       <strong id="nameChange"></strong>
     </div>
 
@@ -715,7 +715,27 @@ async function loadMyPage(){
       throw new Error('DriverIDの照合に失敗しました');
     }
 
-    // ④ 契約状況に応じて進捗を判定
+    // ④ 本人のDriverIDに紐づく車両1台だけを安全なRPCから取得
+    // 車両台帳の全項目はブラウザへ公開しない。
+    // 車両が未割当・複数割当の場合は非表示。
+    const {data:vehicleRows,error:vehicleError} =
+      await authClient.rpc('gf_mypage_vehicle_for_current_user');
+
+    if(currentCheck !== checkSequence) return;
+
+    if(vehicleError){
+      // 受付情報の表示は維持し、車両情報だけ未取得とする
+      console.error(
+        '車両情報取得エラー',
+        vehicleError.code || 'unknown'
+      );
+    }
+
+    const vehicleInfo =
+      !vehicleError && Array.isArray(vehicleRows) && vehicleRows.length === 1
+        ? vehicleRows[0] : null;
+
+    // ⑤ 契約状況に応じて進捗を判定
     // ③車両準備中以降は車両台帳との連携後に対応
     const contractStatus = String(app.contract_status ?? '').trim();
     const completedStatuses = [
@@ -747,10 +767,12 @@ const stage = completedStatuses.includes(contractStatus)
       contract:
         app.contract_status || '未設定',
 
-      // 未確定の車両情報は表示しない
-      vehicle: '',
-      nameChange: '',
-      handover: ''
+      // 車番・名義変更日・引渡可能日を本人の車両台帳から取得
+      vehicle: vehicleInfo?.vehicle_number || '',
+      nameChange: vehicleInfo?.name_change_date || '未設定',
+      // 現時点の車両台帳には「引渡可能日」が未登録。
+      // 「引渡し（実績日）」とは混同せず、入力されるまでは未設定。
+      handover: vehicleInfo?.handover_available_date || '未設定'
     });
 
   }catch(err){
