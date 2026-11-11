@@ -261,14 +261,24 @@ button:disabled{opacity:.5}
       <strong id="contract"></strong>
     </div>
 
-    <div class="row">
+    <div class="row" id="vehicleStatusRow" style="display:none">
+      <span>車両状況</span>
+      <strong id="vehicleStatus"></strong>
+    </div>
+
+    <div class="row" id="nameChangeRow" style="display:none">
       <span>名義変更日</span>
       <strong id="nameChange"></strong>
     </div>
 
-    <div class="row">
-      <span>引渡可能日</span>
-      <strong id="handover"></strong>
+    <div class="row" id="inspectionExpiryRow" style="display:none">
+      <span>車検満了日</span>
+      <strong id="inspectionExpiry"></strong>
+    </div>
+
+    <div class="row" id="returnScheduledRow" style="display:none">
+      <span>返却予定日</span>
+      <strong id="returnScheduled"></strong>
     </div>
 
     <button class="secondary" onclick="loadMyPage()">
@@ -492,11 +502,20 @@ function showPage(d){
     'receivedAt',
     'deliveryWish',
     'startWish',
-    'contract',
-    'nameChange',
-    'handover'
+    'contract'
   ].forEach(k => {
     $(k).textContent = d[k] || '未定';
+  });
+
+  // 車両未割当や日付空欄の場合は、行ごと非表示
+  [
+    ['vehicleStatusRow', 'vehicleStatus', d.vehicleStatus],
+    ['nameChangeRow', 'nameChange', d.nameChange],
+    ['inspectionExpiryRow', 'inspectionExpiry', d.inspectionExpiry],
+    ['returnScheduledRow', 'returnScheduled', d.returnScheduled]
+  ].forEach(([rowId, fieldId, value]) => {
+    $(rowId).style.display = value ? '' : 'none';
+    $(fieldId).textContent = value || '';
   });
 
   $('vehicleRow').style.display =
@@ -509,7 +528,7 @@ function showPage(d){
     '契約締結',
     '車両準備中',
     '名義変更',
-    '引渡可能'
+    '貸出中'
   ];
 
   const current = steps.indexOf(d.stage);
@@ -719,7 +738,7 @@ async function loadMyPage(){
     // 車両台帳の全項目はブラウザへ公開しない。
     // 車両が未割当・複数割当の場合は非表示。
     const {data:vehicleRows,error:vehicleError} =
-      await authClient.rpc('gf_mypage_vehicle_for_current_user');
+      await authClient.rpc('gf_mypage_vehicle_summary_for_current_user');
 
     if(currentCheck !== checkSequence) return;
 
@@ -735,21 +754,20 @@ async function loadMyPage(){
       !vehicleError && Array.isArray(vehicleRows) && vehicleRows.length === 1
         ? vehicleRows[0] : null;
 
-    // ⑤ 契約状況に応じて進捗を判定
-    // ③車両準備中以降は車両台帳との連携後に対応
+    // ⑤ 貸出中など、台帳の現在状態を優先して進捗を判定
     const contractStatus = String(app.contract_status ?? '').trim();
-    const completedStatuses = [
-      '契約締結済み',
-      '契約締結済',
-      '契約完了'
-    ];
-    
-const stage = completedStatuses.includes(contractStatus)
-  ? '車両準備中'
-  : '申込受付';
+    const completedStatuses = ['契約締結済み','契約締結済','契約完了'];
+    const vehicleStatus = String(vehicleInfo?.vehicle_status || '').trim();
+    const contractDone = completedStatuses.includes(contractStatus);
+    const stage = vehicleStatus === '貸出中'
+      ? '貸出中'
+      : contractDone && vehicleInfo?.name_change_date
+        ? '名義変更'
+        : contractDone
+          ? '車両準備中'
+          : '申込受付';
 
-
-    // ⑤ 既存の表示機能を利用
+    // ⑥ 既存の表示機能を利用
     showPage({
       name: '',
       driverId: link.driver_id,
@@ -767,12 +785,12 @@ const stage = completedStatuses.includes(contractStatus)
       contract:
         app.contract_status || '未設定',
 
-      // 車番・名義変更日・引渡可能日を本人の車両台帳から取得
+      // 台帳に入力されている項目だけ表示する
       vehicle: vehicleInfo?.vehicle_number || '',
-      nameChange: vehicleInfo?.name_change_date || '未設定',
-      // 現時点の車両台帳には「引渡可能日」が未登録。
-      // 「引渡し（実績日）」とは混同せず、入力されるまでは未設定。
-      handover: vehicleInfo?.handover_available_date || '未設定'
+      vehicleStatus: vehicleInfo?.vehicle_status || '',
+      nameChange: vehicleInfo?.name_change_date || '',
+      inspectionExpiry: vehicleInfo?.inspection_expiry_date || '',
+      returnScheduled: vehicleInfo?.return_scheduled_date || ''
     });
 
   }catch(err){
