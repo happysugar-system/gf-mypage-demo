@@ -681,7 +681,7 @@ async function loadMyPage(){
     // Supabase側のRLSでも本人のDriverIDに制限
     const {data:applications,error:appError} =
       await authClient
-        .from('gf_mypage_applications')
+        .from('gf_mypage_applications_prod')
         .select(
           'receipt_id,driver_id,' +
           'received_at,reception_status,' +
