@@ -290,6 +290,32 @@ button:disabled{opacity:.5}
     </button>
   </div>
 
+  <div class="card" id="contactCard">
+    <h2>本人情報・連絡先</h2>
+    <p class="muted">登録内容の確認と変更申請ができます。変更は確認後に反映されます。</p>
+    <div class="row"><span>氏名</span><strong id="contactName">確認中</strong></div>
+    <div class="row"><span>電話番号</span><strong id="contactPhone">確認中</strong></div>
+    <div class="row"><span>連絡先メール</span><strong id="contactEmail">確認中</strong></div>
+    <div class="row"><span>ログイン用メール</span><strong id="loginEmail">確認中</strong></div>
+    <p class="muted">ログイン用メールは連絡先とは別です。連絡先メールの変更だけではログイン先は変わりません。</p>
+
+    <button id="editContactButton" class="secondary" type="button"
+      onclick="toggleContactEditor()">連絡先を変更する</button>
+    <div id="contactEditor" class="hidden">
+      <label for="newContactPhone">新しい電話番号（変更時のみ）</label>
+      <input id="newContactPhone" type="tel" inputmode="tel" autocomplete="tel"
+        placeholder="09012345678" maxlength="13">
+      <label for="newContactEmail">新しい連絡先メール（変更時のみ）</label>
+      <input id="newContactEmail" type="email" autocomplete="email"
+        placeholder="example@example.com" maxlength="254">
+      <button id="submitContactButton" type="button" onclick="submitContactChange()">
+        変更を申請する
+      </button>
+      <p class="muted">新しいメールアドレスはGOLD FIRST側で本人確認したうえで反映します。</p>
+    </div>
+    <p id="contactRequestStatus" class="muted" role="status"></p>
+  </div>
+
 </section>
 
 <p class="notice">
@@ -319,6 +345,9 @@ const $ = id => document.getElementById(id);
 let authClient = null;
 let checkSequence = 0;
 let registrationSubmitting = false;
+let contactSubmitting = false;
+let contactDriverId = null;
+let contactPending = false;
 
 function setMessage(message){
   $('message').textContent = message;
@@ -476,6 +505,97 @@ async function saveIdentity(){
     $('registrationMessage').textContent = '保存できませんでした。時間をおいて再度お試しください。';
     console.error('本人確認情報の保存エラー',err.code || err.name || 'unknown');
   }finally{$('saveIdentityButton').disabled = false;}
+}
+
+function toggleContactEditor(){
+  if(contactPending) return;
+  $('contactEditor').classList.toggle('hidden');
+}
+
+async function loadContactInfo(expectedDriverId){
+  contactDriverId = null;
+  $('contactName').textContent = '確認中';
+  $('contactPhone').textContent = '確認中';
+  $('contactEmail').textContent = '確認中';
+  $('loginEmail').textContent = '確認中';
+  $('contactRequestStatus').textContent = '';
+  $('contactEditor').classList.add('hidden');
+  try{
+    const {data:rows,error} =
+      await authClient.rpc('gf_mypage_contact_for_current_user');
+    if(error) throw error;
+    const item = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    if(!item || item.driver_id !== expectedDriverId)
+      throw new Error('本人照合不一致');
+    contactDriverId = expectedDriverId;
+    $('contactName').textContent = item.full_name || '未登録';
+    $('contactPhone').textContent = item.phone_number || '未登録';
+    $('contactEmail').textContent = item.email || '未登録';
+    $('loginEmail').textContent = item.login_email || '未登録';
+
+    const {data:requests,error:reqError} = await authClient
+      .from('gf_mypage_contact_change_requests')
+      .select('id,status,created_at,requested_phone,requested_email')
+      .order('created_at',{ascending:false}).limit(1);
+    if(reqError) throw reqError;
+    const latest = requests?.[0];
+    contactPending = latest?.status === 'pending';
+    $('editContactButton').disabled = contactPending;
+    $('contactRequestStatus').textContent = contactPending
+      ? '連絡先の変更申請を受け付けました。確認・反映待ちです。'
+      : latest?.status === 'rejected'
+      ? '前回の申請は確認が必要です。新しい申請ができます。'
+      : '';
+  }catch(err){
+    console.error('連絡先取得エラー',err.code || err.name || 'unknown');
+    contactDriverId = null;
+    $('contactRequestStatus').textContent =
+      '連絡先を取得できませんでした。ページを更新してください。';
+    $('editContactButton').disabled = true;
+  }
+}
+
+async function submitContactChange(){
+  if(!authClient || !contactDriverId || contactSubmitting || contactPending) return;
+  const phone = $('newContactPhone').value.replace(/[\\sー－-]/g,'').trim();
+  const email = $('newContactEmail').value.trim().toLowerCase();
+  if(!phone && !email){
+    $('contactRequestStatus').textContent = '変更する項目を入力してください。'; return;
+  }
+  if(phone && !/^0[0-9]{9,10}$/.test(phone)){
+    $('contactRequestStatus').textContent = '電話番号は10〜11桁で入力してください。'; return;
+  }
+  if(email && (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))){
+    $('contactRequestStatus').textContent = 'メールアドレスを確認してください。'; return;
+  }
+  if(!confirm('入力した連絡先の変更をGOLD FIRSTに申請します。よろしいですか？')) return;
+  contactSubmitting = true;
+  $('submitContactButton').disabled = true;
+  try {
+    const {data:userData,error:userError} = await authClient.auth.getUser();
+    if(userError || !userData.user) throw new Error('認証エラー');
+    const {error} = await authClient.from('gf_mypage_contact_change_requests')
+      .insert({
+        auth_user_id:userData.user.id,
+        driver_id:contactDriverId,
+        requested_phone:phone || null,
+        requested_email:email || null
+      });
+    if(error) throw error;
+    contactPending = true;
+    $('editContactButton').disabled = true;
+    $('contactEditor').classList.add('hidden');
+    $('contactRequestStatus').textContent =
+      '変更申請を受け付けました。確認後にドライバーマスターへ反映されます。';
+  } catch(err) {
+    console.error('連絡先申請エラー',err.code || err.name || 'unknown');
+    $('contactRequestStatus').textContent = err.code === '23505'
+      ? '確認待ちの変更申請があります。'
+      : '申請を保存できませんでした。時間をおいて再度お試しください。';
+  }finally {
+    contactSubmitting = false;
+    $('submitContactButton').disabled = false;
+  }
 }
 
 function showError(message){
@@ -792,6 +912,9 @@ async function loadMyPage(){
       inspectionExpiry: vehicleInfo?.inspection_expiry_date || '',
       returnScheduled: vehicleInfo?.return_scheduled_date || ''
     });
+
+    // 受付・車両情報の表示を妨げず、本人の連絡先を追加で取得
+    await loadContactInfo(link.driver_id);
 
   }catch(err){
 
