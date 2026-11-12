@@ -4,15 +4,15 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f6f6;color:#17242b;font-family:system-ui,-apple-system,sans-serif}header{background:#153c36;color:white;padding:20px;font-weight:700}main{max-width:540px;margin:22px auto;padding:0 14px}.card{background:white;border-radius:16px;padding:22px;box-shadow:0 2px 12px #17332b13;margin-bottom:15px}h1{font-size:20px}h2{font-size:17px;margin-top:24px}p{line-height:1.7}.muted{color:#60716d;font-size:13px}.warning{padding:14px;border-radius:10px;background:#fff2d8;color:#6d4b15;font-weight:650}.field{border-bottom:1px solid #edf0ef;padding-bottom:18px}label{display:block;font-weight:650;margin:12px 0 8px}input[type=file]{width:100%;padding:13px;border:1px solid #ccd7d4;border-radius:9px;background:white}button{width:100%;padding:14px;border:0;border-radius:9px;background:#166b56;color:white;font-weight:700;font-size:15px}button:disabled{background:#b8c4c0}a{color:#166b56}.preview{font-size:13px;overflow-wrap:anywhere}#result{margin-top:14px;white-space:pre-wrap}</style></head>
 <body><header>GOLD FIRST｜書類提出（開発テスト）</header><main><section class="card"><h1>書類提出画面のテスト</h1>
-<p class="warning">開発中・送信不可。実際の免許証や住民票は選択しないでください。ダミー画像・ダミーPDFだけで操作確認してください。</p>
+<p class="warning">開発中・送信不可。実際の免許証や住民票は選択しないでください。ダミー画像だけで操作確認してください。</p>
 <p class="muted">このページは画面とファイル選択の確認専用です。Supabase・Google Driveへは送信しません。</p>
 <div class="field"><h2>1. 運転免許証（表）</h2><label for="front">画像を選択・撮影</label><input id="front" type="file" accept="image/jpeg,image/png" capture="environment"><p id="frontInfo" class="preview muted">未選択</p></div>
 <div class="field"><h2>2. 運転免許証（裏）</h2><label for="back">画像を選択・撮影</label><input id="back" type="file" accept="image/jpeg,image/png" capture="environment"><p id="backInfo" class="preview muted">未選択</p></div>
-<div class="field"><h2>3. 住民票</h2><label for="resident">PDFを選択</label><input id="resident" type="file" accept="application/pdf"><p id="residentInfo" class="preview muted">未選択</p></div>
+<div class="field"><h2>3. 住民票</h2><label for="resident">画像を選択・撮影</label><input id="resident" type="file" accept="image/jpeg,image/png" capture="environment"><p id="residentInfo" class="preview muted">未選択</p></div>
 <h2>提出前の確認</h2><p id="summary" class="muted">3点のダミーファイルを選択してください。</p><button disabled>提出する（本番連携後に有効化）</button>
 <p id="result" class="muted">ファイルは送信されません。</p></section><p class="muted"><a href="./">ドライバーマイページへ戻る</a></p></main>
 <script>
-const defs=[['front',['image/jpeg','image/png']],['back',['image/jpeg','image/png']],['resident',['application/pdf']]];
+const defs=[['front',['image/jpeg','image/png']],['back',['image/jpeg','image/png']],['resident',['image/jpeg','image/png']]];
 function check(){let count=0;for(const [id,types] of defs){const f=document.getElementById(id).files[0];const el=document.getElementById(id+'Info');if(!f){el.textContent='未選択';continue;}const ok=types.includes(f.type)&&f.size>0&&f.size<=10*1024*1024;el.textContent=(ok?'選択済み: ':'ファイル形式または容量が不正: ')+f.name+'（'+(f.size/1024/1024).toFixed(2)+' MB）';if(ok)count++;}document.getElementById('summary').textContent=count===3?'ダミーファイル3点の選択を確認しました。送信は無効です。':'有効なファイル '+count+'/3点（各10MB以下）。';}
 defs.forEach(([id])=>document.getElementById(id).addEventListener('change',check));
 </script></body></html>
