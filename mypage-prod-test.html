@@ -191,6 +191,11 @@ button:disabled{opacity:.5}
     初回登録を申請する
   </button>
   <p id="registrationMessage" class="muted" role="status"></p>
+  <div id="gfLineLinkPanel" class="hidden">
+    <p class="muted">車両依頼を送ったLINEアカウントで本人確認できます。DriverIDの手入力は不要です。</p>
+    <a class="secondary" style="display:block;text-align:center;padding:14px;margin:12px 0;border-radius:9px" href="https://liff.line.me/2012019621-Gu0mOfuK?gf_mypage_link=1">LINEで本人確認してマイページを開く</a>
+    <p class="muted">受付時と異なるLINEアカウントの場合、紐付けは行いません。</p>
+  </div>
 
   <button class="secondary" onclick="loadMyPage()">
     登録状況を再確認
@@ -377,6 +382,7 @@ function showPending(title,text,allowRequest = false){
   $('registrationMessage').textContent = '';
   $('identityFields').classList.toggle('hidden', !allowRequest);
   $('saveIdentityButton').classList.add('hidden');
+  $('gfLineLinkPanel').classList.add('hidden');
   showOnly('pending');
 }
 
@@ -401,12 +407,14 @@ async function showRegistrationState(userId, currentCheck){
       '申請後、GOLD FIRSTが本人確認を行います。',
       true
     );
+      $('gfLineLinkPanel').classList.remove('hidden');
   }else if(data.status === 'pending'){
     showPending(
       '管理者確認待ち',
       '初回登録申請を受け付けています。' +
       'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
     );
+    $('gfLineLinkPanel').classList.remove('hidden');
     if(data.full_name && data.phone_number){
       // 申請済みの人を入力フォームに戻さない。
       $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
