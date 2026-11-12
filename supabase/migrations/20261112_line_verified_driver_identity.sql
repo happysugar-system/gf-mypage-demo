@@ -11,6 +11,7 @@ create table if not exists public.gf_line_driver_identity_prod (
 );
 alter table public.gf_line_driver_identity_prod enable row level security;
 revoke all on public.gf_line_driver_identity_prod from public, anon, authenticated;
+grant select,insert,update,delete on public.gf_line_driver_identity_prod to service_role;
 
 create or replace function public.gf_link_mypage_from_verified_line(
   p_auth_user_id uuid, p_line_user_id text
@@ -98,6 +99,7 @@ create index if not exists gf_mypage_line_challenges_by_user
   on public.gf_mypage_line_challenges(auth_user_id,created_at desc);
 alter table public.gf_mypage_line_challenges enable row level security;
 revoke all on public.gf_mypage_line_challenges from public,anon,authenticated;
+grant select,insert,update,delete on public.gf_mypage_line_challenges to service_role;
 
 -- Called ONLY by server-side service_role after LINE id_token verification.
 -- Locking the challenge row serializes duplicate completion attempts.
