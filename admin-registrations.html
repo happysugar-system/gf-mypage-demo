@@ -161,6 +161,20 @@ placeholder="example@example.com">
 </div>
 
 <div class="card">
+  <h2>既存ドライバー用の招待コード</h2>
+  <p class="muted">免許証から登録済みの既存ドライバー向け。DriverIDを照合して招待コードを発行します。本人確認した相手にだけ個別に渡してください。コードは7日間・1回限りです。</p>
+  <label for="existingInviteDriver">DriverID（例：D000001）</label>
+  <input id="existingInviteDriver" autocomplete="off" maxlength="7" placeholder="D000001">
+  <div class="actions"><button id="createExistingInvite" type="button" onclick="issueExistingDriverInvite()">招待コードを発行</button></div>
+  <div id="existingInviteOutput" class="hidden">
+    <label for="existingInviteCodeOutput">招待コード（再表示できません）</label>
+    <input id="existingInviteCodeOutput" readonly autocomplete="off">
+    <div class="actions"><button class="secondary" type="button" onclick="copyExistingInvite()">コードをコピー</button></div>
+  </div>
+  <p id="existingInviteStatus" class="muted" role="status"></p>
+</div>
+
+<div class="card">
   <h2>承認待ちの申請</h2>
   <p id="listMessage" class="muted" role="status"></p>
   <div id="requests"></div>
@@ -558,6 +572,57 @@ async function review(r,decision,driverId) {
     busy = false;
     $('refresh').disabled = false;
     await refresh();
+  }
+}
+
+
+let existingInviteBusy=false;
+async function issueExistingDriverInvite(){
+  if(existingInviteBusy || !client)return;
+  const driverId=$('existingInviteDriver').value.trim().toUpperCase();
+  $('existingInviteOutput').classList.add('hidden');
+  $('existingInviteCodeOutput').value='';
+  if(!/^D[0-9]{6}$/.test(driverId)){
+    $('existingInviteStatus').textContent='DriverIDを正確に入力してください。';
+    return;
+  }
+  if(!confirm(driverId+' の本人へ安全に届ける招待コードを発行します。既存のコードは無効化されます。よろしいですか？'))return;
+  existingInviteBusy=true;
+  $('createExistingInvite').disabled=true;
+  $('existingInviteStatus').textContent='発行中…';
+  try{
+    const {data:{session},error}=await client.auth.getSession();
+    if(error||!session?.access_token)throw Error('再ログインしてください。');
+    const resp=await fetch(
+      'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-existing-driver-invite',
+      {method:'POST',headers:{
+        apikey:SUPABASE_PUBLISHABLE_KEY,
+        Authorization:'Bearer '+session.access_token,
+        'Content-Type':'application/json'
+      },body:JSON.stringify({action:'issue',driver_id:driverId}),cache:'no-store'}
+    );
+    const data=await resp.json().catch(()=>null);
+    if(!resp.ok||!/^[A-Za-z0-9_-]{43}$/.test(data?.invite_code||''))
+      throw Error(data?.error||'発行できませんでした');
+    $('existingInviteCodeOutput').value=data.invite_code;
+    $('existingInviteOutput').classList.remove('hidden');
+    $('existingInviteStatus').textContent='発行しました。本人と確認できた方にだけ個別に渡してください。有効期限：'+fmt(data.expires_at);
+  }catch(err){
+    $('existingInviteStatus').textContent=err.message||'招待コードの発行に失敗しました。';
+  }finally{
+    existingInviteBusy=false;
+    $('createExistingInvite').disabled=false;
+  }
+}
+async function copyExistingInvite(){
+  const field=$('existingInviteCodeOutput');
+  if(!field?.value)return;
+  try{
+    await navigator.clipboard.writeText(field.value);
+    $('existingInviteStatus').textContent='コピーしました。本人にだけ安全な方法で送ってください。';
+  }catch(_e){
+    field.select();
+    $('existingInviteStatus').textContent='コードを選択しました。手動でコピーしてください。';
   }
 }
 
