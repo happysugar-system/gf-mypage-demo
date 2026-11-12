@@ -82,3 +82,54 @@ revoke execute on function public.gf_link_mypage_from_verified_line(uuid,text)
   from public,anon,authenticated;
 grant execute on function public.gf_link_mypage_from_verified_line(uuid,text)
   to service_role;
+
+
+-- Ephemeral cross-browser pairing: email-login browser and LINE webview do not
+-- share Supabase localStorage. Challenges are 256-bit random tokens, never stored
+-- in plaintext; the database stores SHA-256 hashes only.
+create table if not exists public.gf_mypage_line_challenges (
+  token_hash text primary key check(token_hash ~ '^[0-9a-f]{64}$'),
+  auth_user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  consumed_at timestamptz
+);
+create index if not exists gf_mypage_line_challenges_by_user
+  on public.gf_mypage_line_challenges(auth_user_id,created_at desc);
+alter table public.gf_mypage_line_challenges enable row level security;
+revoke all on public.gf_mypage_line_challenges from public,anon,authenticated;
+
+-- Called ONLY by server-side service_role after LINE id_token verification.
+-- Locking the challenge row serializes duplicate completion attempts.
+create or replace function public.gf_complete_line_mypage_challenge(
+  p_token_hash text, p_line_user_id text
+) returns boolean language plpgsql security definer set search_path='' as $$
+declare v_auth uuid; v_linked text;
+begin
+  if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$'
+     or p_line_user_id is null or p_line_user_id !~ '^U[0-9a-fA-F]{32}$' then
+    raise exception 'Invalid verification';
+  end if;
+  select c.auth_user_id into v_auth
+  from public.gf_mypage_line_challenges c
+  where c.token_hash=p_token_hash and c.consumed_at is null
+    and c.expires_at>now()
+  for update;
+  if v_auth is null then
+    raise exception 'Expired or already-used verification';
+  end if;
+  v_linked := public.gf_link_mypage_from_verified_line(v_auth,p_line_user_id);
+  if v_linked is null then
+    raise exception 'Verification failed';
+  end if;
+  update public.gf_mypage_line_challenges
+  set consumed_at=now()
+  where token_hash=p_token_hash and consumed_at is null;
+  if not found then raise exception 'Verification already used'; end if;
+  return true;
+end
+$$;
+revoke execute on function public.gf_complete_line_mypage_challenge(text,text)
+  from public,anon,authenticated;
+grant execute on function public.gf_complete_line_mypage_challenge(text,text)
+  to service_role;
