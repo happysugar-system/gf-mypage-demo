@@ -697,6 +697,16 @@ async function loadMyPage(){
       return;
     }
 
+    // 既存ドライバー: 以前からマスターに登録されている本人の
+    // 認証済みメールが一意に一致した場合だけ、サーバーで自動承認。
+    // 氏名やDriverIDの自己申告だけでは本人確認しない。
+    const {error:legacyError} =
+      await authClient.rpc('gf_mypage_claim_existing_verified_email');
+    if(legacyError){
+      console.warn('既存ドライバー照合をスキップ',legacyError.code || 'unknown');
+    }
+    if(currentCheck !== checkSequence)return;
+
     // ② DriverIDの紐付け確認
     let {data:link,error:linkError} =
       await authClient
