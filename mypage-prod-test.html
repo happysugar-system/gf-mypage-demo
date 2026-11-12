@@ -297,7 +297,7 @@ button:disabled{opacity:.5}
 
   <div class="card" id="contactCard">
     <h2>本人情報・連絡先</h2>
-    <p class="muted">登録内容の確認と変更申請ができます。変更は確認後に反映されます。</p>
+    <p class="muted">本人確認済みの登録内容を変更できます。受付後、本番ドライバーマスターに反映されます。</p>
     <div class="row"><span>氏名</span><strong id="contactName">確認中</strong></div>
     <div class="row"><span>電話番号</span><strong id="contactPhone">確認中</strong></div>
     <div class="row"><span>連絡先メール</span><strong id="contactEmail">確認中</strong></div>
@@ -316,7 +316,7 @@ button:disabled{opacity:.5}
       <button id="submitContactButton" type="button" onclick="submitContactChange()">
         変更を申請する
       </button>
-      <p class="muted">新しいメールアドレスはGOLD FIRST側で本人確認したうえで反映します。</p>
+      <p class="muted">新しい連絡先メールはログイン用メールとは別です。入力先へのメール到達確認は行われません。</p>
     </div>
     <p id="contactRequestStatus" class="muted" role="status"></p>
   </div>
@@ -590,14 +590,15 @@ async function loadContactInfo(expectedDriverId){
 
     const {data:requests,error:reqError} = await authClient
       .from('gf_mypage_contact_change_requests')
-      .select('id,status,created_at,requested_phone,requested_email')
+      .select('id,status,created_at,processed_at,requested_phone,requested_email')
       .order('created_at',{ascending:false}).limit(1);
     if(reqError) throw reqError;
     const latest = requests?.[0];
-    contactPending = latest?.status === 'pending';
+    contactPending = latest?.status === 'pending' ||
+      (latest?.status === 'approved' && !latest?.processed_at);
     $('editContactButton').disabled = contactPending;
     $('contactRequestStatus').textContent = contactPending
-      ? '連絡先の変更申請を受け付けました。確認・反映待ちです。'
+      ? '連絡先の変更申請を受け付けました。スプシへの反映待ちです。'
       : latest?.status === 'rejected'
       ? '前回の申請は確認が必要です。新しい申請ができます。'
       : '';
@@ -641,7 +642,7 @@ async function submitContactChange(){
     $('editContactButton').disabled = true;
     $('contactEditor').classList.add('hidden');
     $('contactRequestStatus').textContent =
-      '変更申請を受け付けました。確認後にドライバーマスターへ反映されます。';
+      '変更申請を受け付けました。ドライバーマスターへの反映待ちです。';
   } catch(err) {
     console.error('連絡先申請エラー',err.code || err.name || 'unknown');
     $('contactRequestStatus').textContent = err.code === '23505'
@@ -836,6 +837,16 @@ async function loadMyPage(){
       return;
     }
 
+    // 既存ドライバー: 以前からマスターに登録されている本人の
+    // 認証済みメールが一意に一致した場合だけ、サーバーで自動承認。
+    // 氏名やDriverIDの自己申告だけでは本人確認しない。
+    const {error:legacyError} =
+      await authClient.rpc('gf_mypage_claim_existing_verified_email');
+    if(legacyError){
+      console.warn('既存ドライバー照合をスキップ',legacyError.code || 'unknown');
+    }
+    if(currentCheck !== checkSequence)return;
+
     // ② DriverIDの紐付け確認
     let {data:link,error:linkError} =
       await authClient
@@ -877,13 +888,20 @@ async function loadMyPage(){
     if(appError) throw appError;
 
     if(!applications || applications.length === 0){
-
-      showPending(
-        '申込情報の連携待ち',
-        'DriverIDとの紐付けを確認しました。' +
-        '申込情報が登録されるまでお待ちください。'
-      );
-
+      // 免許証から登録された既存ドライバーには車両依頼受付がない。
+      // 本人リンクが確認済みなら、連絡先管理画面は利用可能にする。
+      $('welcome').textContent='DriverID：'+link.driver_id;
+      $('status').textContent='本人確認済み・登録済み';
+      $('steps').replaceChildren();
+      ['receipt','receptionStatus','receivedAt','deliveryWish',
+        'startWish','contract','vehicle','vehicleStatus',
+        'nameChange','inspectionExpiry','returnScheduled']
+        .forEach(k=>{const el=$(k);if(el)el.textContent='―';});
+      $('vehicleRow').style.display='none';
+      ['vehicleStatusRow','nameChangeRow','inspectionExpiryRow','returnScheduledRow']
+        .forEach(k=>{const el=$(k);if(el)el.style.display='none';});
+      showOnly('mypage');
+      await loadContactInfo(link.driver_id);
       return;
     }
 
