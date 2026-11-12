@@ -368,11 +368,18 @@ async function showRegistrationState(userId, currentCheck){
       '初回登録申請を受け付けています。' +
       'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
     );
-    $('identityFields').classList.remove('hidden');
-    $('saveIdentityButton').classList.remove('hidden');
-    $('identityName').value = data.full_name || '';
-    $('identityPhone').value = data.phone_number || '';
-    $('registrationMessage').textContent = data.full_name && data.phone_number ? '本人確認情報は保存済みです。修正もできます。' : '氏名と電話番号を入力して保存してください。';
+    if(data.full_name && data.phone_number){
+      // 申請済みの人を入力フォームに戻さない。
+      $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
+      $('registrationMessage').textContent =
+        '本人確認情報は保存済みです。管理者による確認後にマイページをご案内します。';
+    }else{
+      $('identityFields').classList.remove('hidden');
+      $('saveIdentityButton').classList.remove('hidden');
+      $('identityName').value = data.full_name || '';
+      $('identityPhone').value = data.phone_number || '';
+      $('registrationMessage').textContent = '氏名と電話番号を入力して保存してください。';
+    }
   }else if(data.status === 'rejected'){
     showPending(
       '登録内容の確認が必要です',
