@@ -30,3 +30,30 @@
 
 ## 注意
 本人確認の未完成状態でマイページを外部公開しない。GAS・Supabaseの既存データを勝手に変更しない。
+
+## Existing license-based drivers and contact update: added 2026-11-12
+
+Already deployed to Supabase (no existing links modified):
+- gf_mypage_claim_existing_verified_email: preexisting, unique, verified email match only
+- gf_mypage_existing_driver_invites + gf_redeem_existing_driver_invite: one-time 256-bit invitation codes, 7-day expiry, server-side redeem, no plaintext DB storage
+- gf-existing-driver-invite Edge Function v1 ACTIVE, admin-only issue, authenticated redeem
+- gf_auto_accept_verified_contact_request: automatically approves contact changes for the same approved user and uniquely matched master driver
+- Current master: 171 drivers, 4 with email, 5 with phone; existing links 6; invitations 0; LINE mappings 0
+
+GitHub staged (not yet published):
+- Existing driver one-time-code entry in index.html and mypage-prod-test.html
+- Admin code issuance form in admin-registrations.html
+- Existing drivers without vehicle-request records see contact view after trusted linking
+- GF156 on gf-gas-test feature branch: safe config diagnostics and guarded 10-minute trigger installer; WRITE remains false
+- GF157 on gf-gas-test feature branch: requires GF157_GO_LIVE_YYYYMMDD before export; WRITE remains false
+
+Required checks before enabling or publishing:
+1. Verify same LINE provider for LIFF Login and Messaging API user IDs
+2. Confirm trusted delivery of a single existing-driver invite to an actual driver; never distribute codes based on name and DriverID alone
+3. Run read-only production GAS preflight before deploying GF156/GF157 updates
+4. Set GF_MYPAGE_SB_URL and GF_MYPAGE_SB_SERVICE_ROLE_KEY in GAS Script Properties privately; never post service key in chat or GitHub
+5. Execute GF_MYPAGE_連絡先同期_設定診断(), then test a non-sensitive permitted contact request before enabling writes and a single 10-minute trigger
+6. After first real vehicle-request form registration, verify end-to-end LINE ID → DriverID matching with no legacy test history
+7. Review frontend pages and reject replay, expired invite, wrong account, mismatched LINE token, and duplicate links before publishing GitHub Pages
+
+Automated email link cannot work for the majority of legacy drivers without preexisting trusted contact data. Do not weaken identity proof.
