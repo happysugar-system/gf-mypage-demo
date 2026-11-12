@@ -28,7 +28,8 @@ Deno.serve(async (request: Request) => {
 
   const url = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const channel = Deno.env.get("GF_LINE_LOGIN_CHANNEL_ID");
+  // Public LINE Login channel ID corresponds to existing LIFF 2012019621-Gu0mOfuK.
+  const channel = "2012019621";
   if (!url || !serviceKey || !channel)
     return reply(503, { error: "Identity verification unavailable" });
   const sb = createClient(url, serviceKey, {
