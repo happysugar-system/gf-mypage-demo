@@ -654,23 +654,8 @@ async function loadMyPage(){
 
     if(linkError) throw linkError;
 
-    if(!link || !link.driver_id){
-      // 認証済みメールをサーバー側で照合して自動連携する。
-      // ブラウザからDriverIDや照合メールは渡さない。
-      const {error:autoLinkError} = await authClient
-        .rpc('gf_auto_link_verified_email');
-      if(currentCheck !== checkSequence) return;
-      if(autoLinkError) throw autoLinkError;
-
-      const {data:linked,error:recheckError} = await authClient
-        .from('gf_mypage_links')
-        .select('driver_id')
-        .eq('auth_user_id',userData.user.id)
-        .maybeSingle();
-      if(currentCheck !== checkSequence) return;
-      if(recheckError) throw recheckError;
-      link = linked;
-    }
+    // 管理者が本番ドライバーマスターで本人確認して承認するまで、
+    // DriverIDを自動紐付けしない。旧テストマスター経由の自動連携は禁止。
 
     if(!link || !link.driver_id){
       await showRegistrationState(userData.user.id,currentCheck);
