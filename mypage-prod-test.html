@@ -193,7 +193,7 @@ button:disabled{opacity:.5}
   <p id="registrationMessage" class="muted" role="status"></p>
   <div id="gfLineLinkPanel" class="hidden">
     <p class="muted">車両依頼を送ったLINEアカウントで本人確認できます。DriverIDの手入力は不要です。</p>
-    <a class="secondary" style="display:block;text-align:center;padding:14px;margin:12px 0;border-radius:9px" href="https://liff.line.me/2012019621-Gu0mOfuK?gf_mypage_link=1">LINEで本人確認してマイページを開く</a>
+    <button type="button" id="gfLineLinkButton" class="secondary" onclick="gfStartLineVerification()">LINEで本人確認してマイページを開く</button>
     <p class="muted">受付時と異なるLINEアカウントの場合、紐付けは行いません。</p>
   </div>
 
@@ -348,6 +348,40 @@ const REDIRECT_URL =
 const $ = id => document.getElementById(id);
 
 let authClient = null;
+
+let gfLineLinkBusy = false;
+async function gfStartLineVerification(){
+  if(gfLineLinkBusy || !authClient)return;
+  gfLineLinkBusy=true;
+  const btn=$('gfLineLinkButton');
+  btn.disabled=true;
+  $('registrationMessage').textContent='LINE本人確認の準備中…';
+  try{
+    const {data:{session},error:sessionError}=await authClient.auth.getSession();
+    if(sessionError||!session?.access_token)
+      throw Error('メール認証ログインを確認できません。もう一度ログインしてください。');
+    const resp=await fetch(
+      'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-mypage-link',
+      {method:'POST',
+       headers:{Authorization:'Bearer '+session.access_token,
+         apikey:SUPABASE_PUBLISHABLE_KEY,
+         'Content-Type':'application/json'},
+       body:JSON.stringify({action:'begin'}),cache:'no-store'}
+    );
+    const data=await resp.json().catch(()=>null);
+    if(!resp.ok || !data || !/^[A-Za-z0-9_-]{43}$/.test(data.challenge||'')){
+      throw Error(data?.error || 'LINE本人確認の準備ができていません。');
+    }
+    // LINE内は別ブラウザ。ランダムな一度きりの認証コードで安全に関連付ける。
+    location.assign('https://liff.line.me/2012019621-Gu0mOfuK?gf_mypage_link=1&gf_challenge='+
+      encodeURIComponent(data.challenge));
+  }catch(err){
+    $('registrationMessage').textContent=err.message||'本人確認の準備に失敗しました。';
+    gfLineLinkBusy=false;
+    btn.disabled=false;
+  }
+}
+
 let checkSequence = 0;
 let registrationSubmitting = false;
 let contactSubmitting = false;
