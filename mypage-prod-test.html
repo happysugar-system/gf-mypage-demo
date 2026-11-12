@@ -192,6 +192,7 @@ button:disabled{opacity:.5}
   </button>
   <p id="registrationMessage" class="muted" role="status"></p>
 
+  <p id="gfWaitAutoCheck" class="muted" role="status" style="margin-top:12px">登録状況を自動確認しています。画面を開いたままで大丈夫です。</p>
   <button class="secondary" onclick="loadMyPage()">
     登録状況を再確認
   </button>
@@ -343,6 +344,39 @@ const REDIRECT_URL =
 const $ = id => document.getElementById(id);
 
 let authClient = null;
+
+let gfAutoCheckTimer=null;
+let gfAutoCheckStartedAt=0;
+let gfAutoCheckInFlight=false;
+function gfStopAutoCheck(){
+  if(gfAutoCheckTimer)clearTimeout(gfAutoCheckTimer);
+  gfAutoCheckTimer=null;gfAutoCheckStartedAt=0;
+}
+function gfScheduleAutoCheck(){
+  if(!document.getElementById('gfWaitAutoCheck'))return;
+  if(!gfAutoCheckStartedAt)gfAutoCheckStartedAt=Date.now();
+  const seconds=Math.floor((Date.now()-gfAutoCheckStartedAt)/1000);
+  const el=$('gfWaitAutoCheck');
+  if(seconds>=180){
+    el.textContent='自動確認を一時停止しました。必要な場合は「登録状況を再確認」を押してください。';
+    gfStopAutoCheck();
+    return;
+  }
+  el.textContent='約10秒ごとに登録状況を自動確認しています（'+seconds+'秒経過）。';
+  if(gfAutoCheckTimer)clearTimeout(gfAutoCheckTimer);
+  gfAutoCheckTimer=setTimeout(async()=>{
+    gfAutoCheckTimer=null;
+    if(document.visibilityState==='hidden'){
+      gfScheduleAutoCheck();
+      return;
+    }
+    if(gfAutoCheckInFlight)return;
+    gfAutoCheckInFlight=true;
+    try{await loadMyPage({isAutoCheck:true});}
+    finally{gfAutoCheckInFlight=false;}
+  },10000);
+}
+
 let checkSequence = 0;
 let registrationSubmitting = false;
 let contactSubmitting = false;
@@ -378,6 +412,8 @@ function showPending(title,text,allowRequest = false){
   $('identityFields').classList.toggle('hidden', !allowRequest);
   $('saveIdentityButton').classList.add('hidden');
   showOnly('pending');
+  if(title !== '登録内容の確認が必要です' && !allowRequest)gfScheduleAutoCheck();
+  else gfStopAutoCheck();
 }
 
 /**
@@ -773,13 +809,13 @@ async function verifyOtpCode(){
  * 本人のDriverIDを照合し、
  * 紐付く申込情報だけ取得する。
  */
-async function loadMyPage(){
+async function loadMyPage(options={}){
 
   if(!authClient) return;
 
   const currentCheck = ++checkSequence;
 
-  showOnly('loading');
+  if(!options.isAutoCheck) showOnly('loading');
 
   try{
 
@@ -813,6 +849,8 @@ async function loadMyPage(){
       await showRegistrationState(userData.user.id,currentCheck);
       return;
     }
+
+    gfStopAutoCheck();
 
     // ③ 本人の申込情報を取得
     // Supabase側のRLSでも本人のDriverIDに制限
@@ -940,6 +978,7 @@ async function logout(){
   if(!authClient) return;
 
   ++checkSequence;
+  gfStopAutoCheck();
 
   const {error} =
     await authClient.auth.signOut();
