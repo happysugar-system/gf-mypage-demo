@@ -191,6 +191,13 @@ button:disabled{opacity:.5}
     初回登録を申請する
   </button>
   <p id="registrationMessage" class="muted" role="status"></p>
+  <div id="gfExistingInvitePanel" class="hidden" style="margin:14px 0">
+    <p class="muted">以前からGOLD FIRSTで車両をご利用の方は、GOLD FIRSTから直接受け取った招待コードで紐付けできます。</p>
+    <label for="gfExistingInviteCode">既存ドライバー用の招待コード</label>
+    <input id="gfExistingInviteCode" autocomplete="off" maxlength="43" placeholder="招待コードを入力">
+    <button id="gfExistingInviteButton" type="button" onclick="gfRedeemExistingInvite()">招待コードで本人確認する</button>
+    <p class="muted">氏名とDriverIDだけでは紐付けできません。コードは一度しか使えません。</p>
+  </div>
   <div id="gfLineLinkPanel" class="hidden">
     <p class="muted">車両依頼を送ったLINEアカウントで本人確認できます。DriverIDの手入力は不要です。</p>
     <button type="button" id="gfLineLinkButton" class="secondary" onclick="gfStartLineVerification()">LINEで本人確認してマイページを開く</button>
@@ -349,6 +356,42 @@ const $ = id => document.getElementById(id);
 
 let authClient = null;
 
+let gfInviteSubmitting=false;
+async function gfRedeemExistingInvite(){
+  if(!authClient||gfInviteSubmitting)return;
+  const invite=$('gfExistingInviteCode').value.trim();
+  if(!/^[A-Za-z0-9_-]{43}$/.test(invite)){
+    $('registrationMessage').textContent='GOLD FIRSTから受け取った招待コードを入力してください。';
+    return;
+  }
+  gfInviteSubmitting=true;
+  $('gfExistingInviteButton').disabled=true;
+  $('registrationMessage').textContent='招待コードの確認中…';
+  try{
+    const {data:{session},error:sessionErr}=await authClient.auth.getSession();
+    if(sessionErr||!session?.access_token)
+      throw Error('メール認証ログインを確認できません。');
+    const response=await fetch(
+      'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-existing-driver-invite',
+      {method:'POST',headers:{
+        apikey:SUPABASE_PUBLISHABLE_KEY,
+        Authorization:'Bearer '+session.access_token,
+        'Content-Type':'application/json'
+      },body:JSON.stringify({action:'redeem',invite_code:invite}),cache:'no-store'}
+    );
+    const out=await response.json().catch(()=>null);
+    if(!response.ok||out?.linked!==true)
+      throw Error(out?.error||'招待コードを確認できませんでした。');
+    $('gfExistingInviteCode').value='';
+    location.assign('mypage-prod-test.html');
+  }catch(err){
+    $('registrationMessage').textContent=err.message||'招待コードを確認できませんでした。';
+    gfInviteSubmitting=false;
+    $('gfExistingInviteButton').disabled=false;
+  }
+}
+
+
 let gfLineLinkBusy = false;
 async function gfStartLineVerification(){
   if(gfLineLinkBusy || !authClient)return;
@@ -417,6 +460,7 @@ function showPending(title,text,allowRequest = false){
   $('identityFields').classList.toggle('hidden', !allowRequest);
   $('saveIdentityButton').classList.add('hidden');
   $('gfLineLinkPanel').classList.add('hidden');
+  $('gfExistingInvitePanel').classList.add('hidden');
   showOnly('pending');
 }
 
@@ -442,6 +486,8 @@ async function showRegistrationState(userId, currentCheck){
       true
     );
       $('gfLineLinkPanel').classList.remove('hidden');
+    $('gfExistingInvitePanel').classList.remove('hidden');
+      $('gfExistingInvitePanel').classList.remove('hidden');
   }else if(data.status === 'pending'){
     showPending(
       '管理者確認待ち',
@@ -449,6 +495,7 @@ async function showRegistrationState(userId, currentCheck){
       'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
     );
     $('gfLineLinkPanel').classList.remove('hidden');
+    $('gfExistingInvitePanel').classList.remove('hidden');
     if(data.full_name && data.phone_number){
       // 申請済みの人を入力フォームに戻さない。
       $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
