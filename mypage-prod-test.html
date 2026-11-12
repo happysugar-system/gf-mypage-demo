@@ -481,8 +481,9 @@ async function showRegistrationState(userId, currentCheck){
   if(!data){
     showPending(
       '初回登録のご案内',
-      'メール認証が完了しました。初回登録を申請してください。' +
-      '申請後、GOLD FIRSTが本人確認を行います。',
+      '既存ドライバーはGOLD FIRSTから届いた招待コード、' +
+      '新規ドライバーは車両依頼時のLINEで本人確認してください。' +
+      'どちらもない場合は本人確認の申請ができます。',
       true
     );
       $('gfLineLinkPanel').classList.remove('hidden');
