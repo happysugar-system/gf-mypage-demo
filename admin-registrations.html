@@ -427,10 +427,12 @@ async function loadCandidate(r,item,seq) {
 
   if (c.already_linked) {
     area.append(el('div',
-      'このDriverIDはすでに別のログインに紐付いています。',
+      '既存のログイン紐付けがあります。本人・契約情報を必ず再確認してください。' +
+      'この申請者本人と同じDriverIDの紐付けなら承認可能ですが、' +
+      '別のログインに紐付いている場合はサーバー側で承認を拒否します。',
       'warning'));
-    addRejectButton(r,item);
-    return;
+    // データベース側で既存ユーザー/DriverIDの一致を厳格に判定する。
+    // 別人の紐付けを上書き・削除することはしない。
   }
 
   if (requestPhone && masterPhone &&
