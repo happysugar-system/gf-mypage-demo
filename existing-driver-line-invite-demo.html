@@ -1,0 +1,27 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GOLD FIRST｜既存ドライバー初回連携（デモ）</title><style>body{font:16px system-ui;background:#f4f6f6;color:#20352f;margin:0}main{max-width:460px;margin:32px auto;background:white;border-radius:16px;padding:24px;box-shadow:0 4px 18px #0001}button{border:0;border-radius:9px;background:#176b54;color:white;padding:15px;width:100%;font-size:16px;font-weight:bold}button:disabled{opacity:.5}p{line-height:1.7}small{color:#667}</style></head><body><main><h2>GOLD FIRST｜初回LINE連携</h2><p>GOLD FIRSTから直接受け取った招待リンクをLINEで開いてください。連携は一度だけ行います。</p><p id="status">確認中…</p><button id="connect" disabled>LINEと連携する</button><p><small>デモ環境です。個人情報の表示や本番台帳への書き込みは行いません。</small></p></main><script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script><script>
+const endpoint="https://zwprphmfgobkektzsuti.supabase.co/functions/v1/gf-demo-existing-driver-invite";
+const params=new URLSearchParams(location.search),invite=params.get("invite")||"";
+const status=document.getElementById("status"),btn=document.getElementById("connect");
+async function init(){
+ try{
+  if(!/^[A-Za-z0-9_-]{43}$/.test(invite))throw Error("招待リンクが正しくありません");
+  await liff.init({liffId:"2012019621-Gu0mOfuK"});
+  if(!liff.isInClient())throw Error("LINEアプリ内で開いてください");
+  if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return}
+  if(!liff.getIDToken())throw Error("LINE認証情報を取得できません。LIFFのopenid権限を確認してください");
+  btn.disabled=false;status.textContent="招待リンクを確認しました。ボタンを押して初回連携を完了してください。";
+ }catch(e){status.textContent=e.message}
+}
+btn.onclick=async()=>{
+ btn.disabled=true;status.textContent="LINE連携を確認中…";
+ try{
+  const response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"redeem",invite_code:invite,line_id_token:liff.getIDToken()})});
+  const out=await response.json();
+  if(!response.ok||out.linked!==true)throw Error(out.error||"連携できませんでした");
+  history.replaceState(null,"",location.pathname);
+  status.textContent="LINE連携が完了しました。次回からLINEでマイページを開けます。";
+  btn.textContent="連携完了";
+ }catch(e){status.textContent=e.message;btn.disabled=false}
+};
+init();
+</script></body></html>
