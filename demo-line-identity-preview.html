@@ -5,7 +5,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script></head>
 <body><main class="panel"><h1>GOLD FIRST｜デモ本人確認</h1>
 <p class="muted">テスト専用画面です。本番のドライバー情報・マイページには変更を加えません。</p>
-<p id="status" role="status">LINE認証の準備をしています…</p>
+<p id="status" role="status">LINE認証の準備をしています…</p><section id="entry" hidden><p>利用するマイページを開いてください。閲覧できる情報は各マイページのログイン認証で制限されます。</p><a href="./" style="display:block;text-align:center;padding:14px;background:#06c755;color:white;border-radius:9px;text-decoration:none;font-weight:700;margin:12px 0">ドライバーマイページ</a><a href="https://happysugar-system.github.io/gf-ledger/company-portal/" style="display:block;text-align:center;padding:14px;background:#146a9b;color:white;border-radius:9px;text-decoration:none;font-weight:700">法人担当者マイページ</a></section>
 <button id="verify" disabled>LINE本人確認を続ける</button>
 <p class="muted">認証設定とデモ本人情報が登録されるまで、紐づけは完了しません。</p></main>
 <script>
@@ -35,7 +35,7 @@ async function init(){
    return;
   }
   const challenge=searchParams.get('mypage_challenge')||stateParams.get('mypage_challenge');
-  if(!challenge||!/^[A-Za-z0-9_-]{43}$/.test(challenge)){status.textContent='有効なデモ用認証リンクがありません。';return;}
+  if(!challenge){status.textContent='LINEログインを確認しました。';document.getElementById('entry').hidden=false;return;}if(!/^[A-Za-z0-9_-]{43}$/.test(challenge)){status.textContent='認証リンクの形式が不正です。';return;}
   button.disabled=false;
   button.onclick=async()=>{
    button.disabled=true;status.textContent='本人確認中です…';
