@@ -8,9 +8,8 @@ const status=document.getElementById("status"),btn=document.getElementById("conn
 async function init(){
  try{
   if(!/^[A-Za-z0-9_-]{43}$/.test(invite))throw Error("招待リンクが正しくありません");
-  await liff.init({liffId:"2012019621-Gu0mOfuK"});
-  if(!liff.isInClient())throw Error("LIFF専用URL（https://liff.line.me/ で始まるリンク）をLINEから開いてください");
-  if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return}
+  await liff.init({liffId:"2012058414-9wPp65Lt"});
+  if(!liff.isLoggedIn()){liff.login({redirectUri:location.href});return;}
   if(!liff.getIDToken())throw Error("LINE認証情報を取得できません。LIFFのopenid権限を確認してください");
   btn.disabled=false;status.textContent="招待リンクを確認しました。ボタンを押して初回連携を完了してください。";
  }catch(e){status.textContent=e.message}
