@@ -702,14 +702,11 @@ async function loadMyPage(options={}){
       const {data:profile,error:profileError}=await authClient.rpc('gf_demo_get_my_profile');
       if(profileError)throw profileError;
       if(!profile){showPending('LINE本人確認待ち','デモLINEの本人確認を完了してください。');return;}
-      const {data:apps,error:appError}=await authClient.from('gf_demo_applications')
-        .select('receipt_id,driver_id,received_at,reception_status,contract_status,delivery_wish,start_wish,name_change_date,handover_available_date,vehicle_number')
-        .eq('driver_id',profile.driver_id).order('updated_at',{ascending:false}).limit(1);
+      const {data:app,error:appError}=await authClient.rpc('gf_demo_get_my_application');
       if(appError)throw appError;
       if(currentCheck!==checkSequence)return;
       gfStopAutoCheck();
-      if(!apps||!apps.length){showPending('申込情報の連携待ち','本人確認済みです。デモ申込情報は未登録です。');return;}
-      const app=apps[0];
+      if(!app){showPending('申込情報の連携待ち','本人確認済みです。デモ申込情報は未登録です。');return;}
       if(app.driver_id!==profile.driver_id)throw new Error('DriverID照合エラー');
       const fmtDate=x=>x?String(x).slice(0,10):'—';
       $('welcome').textContent=profile.display_name+'（'+profile.driver_id+'）';
