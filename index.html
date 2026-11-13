@@ -272,6 +272,16 @@ button:disabled{opacity:.5}
       <strong id="handover"></strong>
     </div>
 
+    <div class="card" style="box-shadow:none;border:1px solid #e2e9e6;padding:16px;margin-top:20px">
+      <h2>連絡先の変更申請</h2>
+      <p class="muted">電話番号やメールアドレスを変更できます。本人確認と台帳への反映が完了するまで、元の登録情報は維持されます。</p>
+      <label for="newPhone">新しい電話番号</label>
+      <input id="newPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="例：09012345678">
+      <label for="newEmail">新しいメールアドレス</label>
+      <input id="newEmail" type="email" autocomplete="email" maxlength="254" placeholder="例：example@email.com">
+      <button id="contactRequestButton" onclick="requestContactChange()">変更を申請する</button>
+      <p id="contactRequestMessage" class="muted" role="status"></p>
+    </div>
     <button class="secondary" onclick="loadMyPage()">
       最新情報に更新
     </button>
@@ -515,6 +525,41 @@ async function saveIdentity(){
     $('registrationMessage').textContent = '保存できませんでした。時間をおいて再度お試しください。';
     console.error('本人確認情報の保存エラー',err.code || err.name || 'unknown');
   }finally{$('saveIdentityButton').disabled = false;}
+}
+
+
+// 変更申請のみ。認証・マスター更新・スプシ同期の完了を意味しない。
+let contactRequestBusy=false;
+async function requestContactChange(){
+  if(!authClient || contactRequestBusy)return;
+  const message=$('contactRequestMessage');
+  const phone=$('newPhone').value.replace(/[\\sー－-]/g,'').trim();
+  const email=$('newEmail').value.trim();
+  if(!phone && !email){message.textContent='電話番号かメールアドレスを入力してください。';return;}
+  if(phone && !/^0[0-9]{9,10}$/.test(phone)){message.textContent='電話番号はハイフンなし10～11桁で入力してください。';return;}
+  if(email && (email.length>254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))){message.textContent='メールアドレスを確認してください。';return;}
+  contactRequestBusy=true;
+  $('contactRequestButton').disabled=true;
+  message.textContent='申請中…';
+  try{
+    const {data:userData,error:userError}=await authClient.auth.getUser();
+    if(userError || !userData.user)throw new Error('ログインが必要です');
+    const {data:link,error:linkError}=await authClient.from('gf_mypage_links')
+      .select('driver_id').eq('auth_user_id',userData.user.id).maybeSingle();
+    if(linkError || !link?.driver_id)throw new Error('DriverIDが確認できません');
+    const {error}=await authClient.from('gf_mypage_contact_change_requests').insert({
+      auth_user_id:userData.user.id,
+      driver_id:link.driver_id,
+      requested_phone:phone||null,
+      requested_email:email||null
+    });
+    if(error)throw error;
+    message.textContent='変更申請を受け付けました。確認と台帳への反映はまだ完了していません。';
+    $('newPhone').value='';$('newEmail').value='';
+  }catch(err){
+    console.error('連絡先変更申請エラー',err.code||err.name||'unknown');
+    message.textContent='申請を保存できませんでした。時間をおいて再度お試しください。';
+  }finally{contactRequestBusy=false;$('contactRequestButton').disabled=false;}
 }
 
 function showError(message){
