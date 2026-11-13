@@ -274,6 +274,8 @@ button:disabled{opacity:.5}
 
     <div class="card" style="box-shadow:none;border:1px solid #e2e9e6;padding:16px;margin-top:20px">
       <h2>連絡先の変更申請</h2>
+      <p id="currentContactInfo" class="muted">登録済みの連絡先を確認中…</p>
+      <p id="contactSyncStatus" class="muted" role="status"></p>
       <p class="muted">電話番号やメールアドレスを変更できます。本人確認と台帳への反映が完了するまで、元の登録情報は維持されます。</p>
       <label for="newPhone">新しい電話番号</label>
       <input id="newPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="例：09012345678">
@@ -528,6 +530,39 @@ async function saveIdentity(){
 }
 
 
+
+async function loadContactProfile(){
+  if(!authClient)return;
+  const info=$('currentContactInfo'),status=$('contactSyncStatus');
+  if(!info||!status)return;
+  info.textContent='登録済みの連絡先を確認中…';
+  status.textContent='';
+  try{
+    const {data,error}=await authClient.rpc('gf_mypage_contact_for_current_user');
+    if(error)throw error;
+    const profile=Array.isArray(data)?data[0]:null;
+    if(!profile){info.textContent='連絡先を取得できません。';return;}
+    info.textContent='現在の電話番号：'+(profile.phone_number||'未登録')+' / メール：'+(profile.email||'未登録');
+    const {data:userData}=await authClient.auth.getUser();
+    if(!userData?.user)return;
+    const {data:requests,error:reqError}=await authClient
+      .from('gf_mypage_contact_change_requests')
+      .select('status,created_at,processing_note,processed_at')
+      .eq('auth_user_id',userData.user.id)
+      .eq('driver_id',profile.driver_id)
+      .order('created_at',{ascending:false}).limit(1);
+    if(reqError)throw reqError;
+    if(requests?.length){
+      const r=requests[0];
+      const label=r.status==='pending'?'受付・確認待ち':r.status==='approved'?'申請承認済み（台帳反映は別確認）':'申請却下';
+      status.textContent='最新の変更申請：'+label+(r.processed_at?' / 処理日時：'+new Date(r.processed_at).toLocaleString('ja-JP'):'');
+    }
+  }catch(err){
+    info.textContent='連絡先の取得に失敗しました。';
+    console.error('連絡先取得エラー',err.code||err.name||'unknown');
+  }
+}
+
 // 変更申請のみ。認証・マスター更新・スプシ同期の完了を意味しない。
 let contactRequestBusy=false;
 async function requestContactChange(){
@@ -556,6 +591,7 @@ async function requestContactChange(){
     if(error)throw error;
     message.textContent='変更申請を受け付けました。確認と台帳への反映はまだ完了していません。';
     $('newPhone').value='';$('newEmail').value='';
+    await loadContactProfile();
   }catch(err){
     console.error('連絡先変更申請エラー',err.code||err.name||'unknown');
     message.textContent='申請を保存できませんでした。時間をおいて再度お試しください。';
@@ -633,6 +669,7 @@ function showPage(d){
   });
 
   showOnly('mypage');
+  void loadContactProfile();
 }
 
 /**
