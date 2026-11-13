@@ -20,7 +20,7 @@ async function init(){
   if(!window.liff)throw Error('LINE SDKを読み込めませんでした');
   await liff.init({liffId:DEMO_LIFF_ID});
   verifiedLiff=liff.isLoggedIn();
-  if(!verifiedLiff){status.textContent='デモLINEへのログインが必要です。';return;}
+  if(!verifiedLiff){status.textContent='デモLINEログインへ移動します…';liff.login({redirectUri:location.href});return;}
   
   if(!/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/gf-demo-line-mypage-link$/.test(DEMO_LINK_ENDPOINT)){throw Error('デモ専用接続先が不正です');}
   const challenge=new URLSearchParams(location.search).get('mypage_challenge');
