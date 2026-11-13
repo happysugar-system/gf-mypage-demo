@@ -190,6 +190,8 @@ button:disabled{opacity:.5}
   <button id="registerRequestButton" class="hidden" onclick="submitRegistrationRequest()">
     初回登録を申請する
   </button>
+  <button id="gfLineAutoLinkButton" class="hidden" type="button" onclick="beginLineAutoLink()">LINE本人確認してマイページを開く</button>
+  <p id="gfLineAutoLinkStatus" class="muted" role="status"></p>
   <p id="registrationMessage" class="muted" role="status"></p>
 
   <p id="gfWaitAutoCheck" class="muted" role="status" style="margin-top:12px">登録状況を自動確認しています。画面を開いたままで大丈夫です。</p>
@@ -404,6 +406,9 @@ function showLogin(){
 }
 
 function showPending(title,text,allowRequest = false){
+  const autoLinkEligible = title === '初回登録のご案内' || title === '管理者確認待ち' || title === '申請受付完了・管理者確認待ち';
+  $('gfLineAutoLinkButton').classList.toggle('hidden', !autoLinkEligible);
+  $('gfLineAutoLinkStatus').textContent='';
   $('pendingTitle').textContent = title;
   $('pendingText').textContent = text;
   $('registerRequestButton').classList.toggle('hidden', !allowRequest);
@@ -420,6 +425,35 @@ function showPending(title,text,allowRequest = false){
  * 151-C：本人の登録申請状態を取得する。
  * DriverIDは申請者自身には設定させない。
  */
+const GF_LINE_LINK_ENDPOINT = SUPABASE_URL + '/functions/v1/gf-line-mypage-link';
+const GF_LINE_LIFF_URL = 'https://liff.line.me/2012019621-Gu0mOfuK';
+let gfLineLinkBusy = false;
+async function beginLineAutoLink(){
+  if(!authClient || gfLineLinkBusy)return;
+  const button=$('gfLineAutoLinkButton'),status=$('gfLineAutoLinkStatus');
+  gfLineLinkBusy=true;button.disabled=true;
+  status.textContent='LINE本人確認を準備しています…';
+  try{
+    const {data,error}=await authClient.auth.getSession();
+    if(error || !data.session?.access_token)throw new Error('メールログインが必要です');
+    const response=await fetch(GF_LINE_LINK_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+data.session.access_token},
+      body:JSON.stringify({action:'begin'})
+    });
+    const result=await response.json();
+    if(!response.ok || !/^[A-Za-z0-9_-]{43}$/.test(result.challenge||'')){
+      throw new Error(response.status===429?'しばらく時間をおいて再度お試しください。':'LINE本人確認を開始できませんでした。');
+    }
+    // The challenge is short-lived and one-time. No DriverID or user PII in URL.
+    status.textContent='LINE認証画面を開きます。完了後、この画面へ戻ってください。';
+    window.location.assign(GF_LINE_LIFF_URL+'?mypage_challenge='+encodeURIComponent(result.challenge));
+  }catch(err){
+    status.textContent=err.message||'LINE本人確認を開始できませんでした。';
+    gfLineLinkBusy=false;button.disabled=false;
+  }
+}
+
 async function showRegistrationState(userId, currentCheck){
   const {data, error} = await authClient
     .from('gf_mypage_registration_requests')
@@ -433,9 +467,8 @@ async function showRegistrationState(userId, currentCheck){
   if(!data){
     showPending(
       '初回登録のご案内',
-      'メール認証が完了しました。初回登録を申請してください。' +
-      '申請後、GOLD FIRSTが本人確認を行います。',
-      true
+      'メール認証が完了しました。LINE本人確認で自動連携できます。',
+      false
     );
   }else if(data.status === 'pending'){
     showPending(
@@ -446,6 +479,7 @@ async function showRegistrationState(userId, currentCheck){
     if(data.full_name && data.phone_number){
       // 申請済みの人を入力フォームに戻さない。
       $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
+      $('gfLineAutoLinkButton').classList.remove('hidden');
       $('registrationMessage').textContent =
         '本人確認情報は保存済みです。管理者による確認後にマイページをご案内します。';
     }else{
