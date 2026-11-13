@@ -7,12 +7,12 @@
 <p class="muted">テスト専用画面です。本番のドライバー情報・マイページには変更を加えません。</p>
 <p id="status" role="status">LINE認証の準備をしています…</p>
 <button id="verify" disabled>LINE本人確認を続ける</button>
-<p class="muted">安全なデモ用サーバーの準備が完了するまで、登録処理は無効です。</p></main>
+<p class="muted">認証設定とデモ本人情報が登録されるまで、紐づけは完了しません。</p></main>
 <script>
 'use strict';
 const DEMO_LIFF_ID='2012058414-X38FJPaP';
 // Set only after a separate demo endpoint is deployed and audited. Never point at gf-line-mypage-link.
-const DEMO_LINK_ENDPOINT='';
+const DEMO_LINK_ENDPOINT='https://zwprphmfgobkektzsuti.supabase.co/functions/v1/gf-demo-line-mypage-link';
 const status=document.getElementById('status'), button=document.getElementById('verify');
 let verifiedLiff=false;
 async function init(){
@@ -21,7 +21,7 @@ async function init(){
   await liff.init({liffId:DEMO_LIFF_ID});
   verifiedLiff=liff.isLoggedIn();
   if(!verifiedLiff){status.textContent='デモLINEへのログインが必要です。';return;}
-  if(!DEMO_LINK_ENDPOINT){status.textContent='LINEログインを確認しました。デモ用サーバーは未接続です。登録処理は行いません。';return;}
+  
   if(!/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/gf-demo-line-mypage-link$/.test(DEMO_LINK_ENDPOINT)){throw Error('デモ専用接続先が不正です');}
   const challenge=new URLSearchParams(location.search).get('mypage_challenge');
   if(!challenge||!/^[A-Za-z0-9_-]{43}$/.test(challenge)){status.textContent='有効なデモ用認証リンクがありません。';return;}
