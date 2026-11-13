@@ -16,7 +16,7 @@
 <p id="signedIn" class="muted"></p>
 <button id="logout" class="secondary">ログアウト</button>
 <h2>招待リンクを発行</h2>
-<label>既存DriverID<input id="driverId" placeholder="D000001" maxlength="13" autocomplete="off"></label>
+<label>既存DriverID<input id="driverId" placeholder="GF-DEMO-0001" maxlength="40" autocomplete="off"></label>
 <p class="muted">デモに登録済みのDriverIDのみ対象。管理者権限はサーバー側で検証されます。発行リンクの有効期限は24時間、使用は1回限りです。</p>
 <button id="issue">招待リンクを発行する</button>
 <div id="result" aria-live="polite"></div>
@@ -56,7 +56,7 @@ $("issue").onclick=async()=>{
  $("issue").disabled=true;$("result").textContent="";
  try{
   const driverId=$("driverId").value.trim();
-  if(!/^D[0-9]{1,12}$/.test(driverId))throw Error("DriverIDの形式を確認してください");
+  if(!/^[A-Za-z0-9_-]{2,40}$/.test(driverId))throw Error("DriverIDの形式を確認してください");
   const {data:{session},error}=await sb.auth.getSession();
   if(error||!session?.access_token)throw Error("管理者ログインが必要です");
   const resp=await fetch(FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+session.access_token},body:JSON.stringify({action:"issue",driver_id:driverId}),cache:"no-store"});
