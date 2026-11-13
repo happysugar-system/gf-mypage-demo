@@ -37,7 +37,7 @@ function display(active){
 }
 async function request(url,opts){
  const ctrl=new AbortController();
- const timeout=setTimeout(()=>ctrl.abort(),15000);
+ const timeout=setTimeout(()=>ctrl.abort(),45000);
  try{return await fetch(url,{...opts,signal:ctrl.signal,cache:"no-store"});}
  finally{clearTimeout(timeout);}
 }
@@ -55,14 +55,14 @@ $("login").addEventListener("click",async()=>{
   $("signedIn").textContent="ログイン中："+email;
   display(true);
   status("ログイン成功。DriverIDを入力して招待リンクを発行できます。");
- }catch(e){status("ログイン失敗："+(e.name==="AbortError"?"通信が15秒以内に完了しませんでした":e.message));}
+ }catch(e){status("ログイン失敗："+(e.name==="AbortError"?"通信が45秒以内に完了しませんでした（接続または事前通信で停止）":e.message));}
  finally{$("login").disabled=false;}
 });
 $("logout").addEventListener("click",()=>{
  accessToken=null;display(false);$("result").replaceChildren();status("ログアウトしました。");
 });
 $("issue").addEventListener("click",async()=>{
- $("issue").disabled=true;$("result").replaceChildren();status("招待リンクを発行中…");
+ $("issue").disabled=true;$("result").replaceChildren();status("招待リンクを発行中…（最大45秒待機します）");
  try{
   const driverId=$("driverId").value.trim();
   if(!/^[A-Za-z0-9_-]{2,40}$/.test(driverId))throw Error("DriverIDの形式を確認してください");
@@ -82,5 +82,5 @@ $("issue").addEventListener("click",async()=>{
  finally{$("issue").disabled=false;}
 });
 display(false);
-status("画面の準備完了。管理者アカウントでログインしてください。（修正版 v3）");
+status("画面の準備完了。管理者アカウントでログインしてください。（修正版 v4）");
 </script></body></html>
