@@ -702,20 +702,30 @@ async function loadMyPage(options={}){
       const {data:profile,error:profileError}=await authClient.rpc('gf_demo_get_my_profile');
       if(profileError)throw profileError;
       if(!profile){showPending('LINE本人確認待ち','デモLINEの本人確認を完了してください。');return;}
+      const {data:apps,error:appError}=await authClient.from('gf_demo_applications')
+        .select('receipt_id,driver_id,received_at,reception_status,contract_status,delivery_wish,start_wish,name_change_date,handover_available_date,vehicle_number')
+        .eq('driver_id',profile.driver_id).order('updated_at',{ascending:false}).limit(1);
+      if(appError)throw appError;
+      if(currentCheck!==checkSequence)return;
       gfStopAutoCheck();
-      showOnly('mypage');
+      if(!apps||!apps.length){showPending('申込情報の連携待ち','本人確認済みです。デモ申込情報は未登録です。');return;}
+      const app=apps[0];
+      if(app.driver_id!==profile.driver_id)throw new Error('DriverID照合エラー');
+      const fmtDate=x=>x?String(x).slice(0,10):'—';
       $('welcome').textContent=profile.display_name+'（'+profile.driver_id+'）';
       $('status').textContent='LINE本人確認・DriverID紐づけ完了（デモ）';
       $('steps').replaceChildren();
-      $('receipt').textContent='デモ申込データ未登録';
-      $('receptionStatus').textContent='未接続';
-      $('receivedAt').textContent='—';
-      $('deliveryWish').textContent='—';
-      $('startWish').textContent='—';
-      $('contract').textContent='未接続';
-      $('nameChange').textContent='—';
-      $('handover').textContent='—';
-      $('vehicleRow').style.display='none';
+      $('receipt').textContent=app.receipt_id;
+      $('receptionStatus').textContent=app.reception_status||'未設定';
+      $('receivedAt').textContent=fmtDate(app.received_at);
+      $('deliveryWish').textContent=app.delivery_wish||'—';
+      $('startWish').textContent=app.start_wish||'—';
+      $('contract').textContent=app.contract_status||'未設定';
+      $('nameChange').textContent=fmtDate(app.name_change_date);
+      $('handover').textContent=fmtDate(app.handover_available_date);
+      $('vehicleRow').style.display=app.vehicle_number?'flex':'none';
+      $('vehicle').textContent=app.vehicle_number||'';
+      showOnly('mypage');
       return;
     }
 
