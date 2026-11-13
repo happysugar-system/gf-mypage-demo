@@ -71,8 +71,8 @@ $("issue").addEventListener("click",async()=>{
   const out=await resp.json().catch(()=>({}));
   if(!resp.ok)throw Error(out.error||"発行に失敗しました (HTTP "+resp.status+")");
   if(!/^[A-Za-z0-9_-]{43}$/.test(out.invite_code||""))throw Error("招待コードが不正です");
-  const link="https://happysugar-system.github.io/gf-mypage-demo/existing-driver-line-invite-demo.html?invite="+encodeURIComponent(out.invite_code);
-  const p=document.createElement("p");p.textContent="招待リンクを発行しました。有効期限24時間・1回限り。";
+  const link="https://liff.line.me/2012019621-Gu0mOfuK?invite="+encodeURIComponent(out.invite_code);
+  const p=document.createElement("p");p.textContent="LIFF専用の招待リンクを発行しました。有効期限24時間・1回限り。※LINE DevelopersのLIFF Endpoint URLが招待ページに設定されている必要があります。";
   const a=document.createElement("a");a.href=link;a.textContent=link;a.referrerPolicy="no-referrer";
   const copy=document.createElement("button");copy.textContent="招待リンクをコピー";
   copy.addEventListener("click",()=>navigator.clipboard.writeText(link).then(()=>status("リンクをコピーしました。本人確認済みの宛先に送ってください。")).catch(()=>status("コピーできません。リンクを手動でコピーしてください。")));
@@ -82,5 +82,5 @@ $("issue").addEventListener("click",async()=>{
  finally{$("issue").disabled=false;}
 });
 display(false);
-status("画面の準備完了。管理者アカウントでログインしてください。（修正版 v4）");
+status("画面の準備完了。管理者アカウントでログインしてください。（修正版 v5）");
 </script></body></html>
