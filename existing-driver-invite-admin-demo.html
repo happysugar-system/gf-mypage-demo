@@ -23,52 +23,64 @@
 </section>
 <pre id="status" aria-live="polite">認証状態を確認しています…</pre>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const URL="https://zwprphmfgobkektzsuti.supabase.co";
+"use strict";
+const BASE="https://zwprphmfgobkektzsuti.supabase.co";
 const KEY="sb_publishable__wtlccECQwOVd3-LvRVFYQ_2dCUlPVR";
-const FN=URL+"/functions/v1/gf-demo-existing-driver-invite";
-const sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+const FN=BASE+"/functions/v1/gf-demo-existing-driver-invite";
 const $=id=>document.getElementById(id);
-function status(s){$("status").textContent=s}
-function display(session){
- $("loginPanel").classList.toggle("hidden",!!session);
- $("adminPanel").classList.toggle("hidden",!session);
- $("signedIn").textContent=session?"ログイン中："+(session.user?.email||""):"";
+let accessToken=null;
+const status=s=>$("status").textContent=s;
+function display(active){
+ $("loginPanel").classList.toggle("hidden",active);
+ $("adminPanel").classList.toggle("hidden",!active);
 }
-function init(){display(null);status("管理者アカウントでログインしてください。ログイン状態は画面を閉じると解除されます。");}
-$("login").onclick=async()=>{
+async function request(url,opts){
+ const ctrl=new AbortController();
+ const timeout=setTimeout(()=>ctrl.abort(),15000);
+ try{return await fetch(url,{...opts,signal:ctrl.signal,cache:"no-store"});}
+ finally{clearTimeout(timeout);}
+}
+$("login").addEventListener("click",async()=>{
  $("login").disabled=true;
+ status("ログイン処理中…");
  try{
   const email=$("email").value.trim(),password=$("password").value;
-  if(!email||!password)throw Error("メールとパスワードを入力してください");
-  status("ログイン処理中…");
-  const {data,error}=await Promise.race([sb.auth.signInWithPassword({email,password}),new Promise((_,reject)=>setTimeout(()=>reject(Error("認証処理が20秒以上応答しません。通信環境を確認して再度お試しください。")),20000))]);
-  if(error)throw error;
-  $("password").value="";display(data.session);status("ログイン成功。");
- }catch(e){status("ログイン失敗："+e.message)}
- finally{$("login").disabled=false}
-};
-$("logout").onclick=async()=>{await sb.auth.signOut();display(null);$("result").textContent="";status("ログアウトしました。")};
-$("issue").onclick=async()=>{
- $("issue").disabled=true;$("result").textContent="";
+  if(!email||!password)throw Error("メールアドレスとパスワードを入力してください");
+  const resp=await request(BASE+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({email,password})});
+  const data=await resp.json().catch(()=>({}));
+  if(!resp.ok||!data.access_token)throw Error(data.msg||data.error_description||data.message||"認証に失敗しました (HTTP "+resp.status+")");
+  accessToken=data.access_token;
+  $("password").value="";
+  $("signedIn").textContent="ログイン中："+email;
+  display(true);
+  status("ログイン成功。DriverIDを入力して招待リンクを発行できます。");
+ }catch(e){status("ログイン失敗："+(e.name==="AbortError"?"通信が15秒以内に完了しませんでした":e.message));}
+ finally{$("login").disabled=false;}
+});
+$("logout").addEventListener("click",()=>{
+ accessToken=null;display(false);$("result").replaceChildren();status("ログアウトしました。");
+});
+$("issue").addEventListener("click",async()=>{
+ $("issue").disabled=true;$("result").replaceChildren();status("招待リンクを発行中…");
  try{
   const driverId=$("driverId").value.trim();
   if(!/^[A-Za-z0-9_-]{2,40}$/.test(driverId))throw Error("DriverIDの形式を確認してください");
-  const {data:{session},error}=await sb.auth.getSession();
-  if(error||!session?.access_token)throw Error("管理者ログインが必要です");
-  const resp=await fetch(FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+session.access_token},body:JSON.stringify({action:"issue",driver_id:driverId}),cache:"no-store"});
+  if(!accessToken)throw Error("再ログインしてください");
+  const resp=await request(FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+accessToken},body:JSON.stringify({action:"issue",driver_id:driverId})});
   const out=await resp.json().catch(()=>({}));
-  if(!resp.ok)throw Error(out.error||"発行できませんでした（HTTP "+resp.status+"）");
-  if(!/^[A-Za-z0-9_-]{43}$/.test(out.invite_code||""))throw Error("発行結果が不正です");
+  if(!resp.ok)throw Error(out.error||"発行に失敗しました (HTTP "+resp.status+")");
+  if(!/^[A-Za-z0-9_-]{43}$/.test(out.invite_code||""))throw Error("招待コードが不正です");
   const link="https://happysugar-system.github.io/gf-mypage-demo/existing-driver-line-invite-demo.html?invite="+encodeURIComponent(out.invite_code);
-  const p=document.createElement("p");p.textContent="招待コードを発行しました。発行したリンクはこの画面を閉じると再表示できません。";
-  const a=document.createElement("a");a.href=link;a.textContent=link;a.rel="noreferrer";a.referrerPolicy="no-referrer";
-  const copy=document.createElement("button");copy.textContent="招待リンクをコピー";copy.onclick=()=>navigator.clipboard.writeText(link).then(()=>status("リンクをコピーしました。本人確認済みの宛先にのみ送ってください。")).catch(()=>status("コピーできません。リンクを手動でコピーしてください。"));
+  const p=document.createElement("p");p.textContent="招待リンクを発行しました。有効期限24時間・1回限り。";
+  const a=document.createElement("a");a.href=link;a.textContent=link;a.referrerPolicy="no-referrer";
+  const copy=document.createElement("button");copy.textContent="招待リンクをコピー";
+  copy.addEventListener("click",()=>navigator.clipboard.writeText(link).then(()=>status("リンクをコピーしました。本人確認済みの宛先に送ってください。")).catch(()=>status("コピーできません。リンクを手動でコピーしてください。")));
   $("result").append(p,a,document.createElement("br"),copy);
-  status("発行完了。まだ送信していません。本人に確認した宛先へ個別送付してください。");
- }catch(e){status("発行エラー："+e.message)}
- finally{$("issue").disabled=false}
-};
-init();
+  status("発行成功。リンクはまだ送信していません。");
+ }catch(e){status("発行エラー："+(e.name==="AbortError"?"通信が15秒以内に完了しませんでした":e.message));}
+ finally{$("issue").disabled=false;}
+});
+display(false);
+status("画面の準備完了。管理者アカウントでログインしてください。（修正版 v3）");
 </script></body></html>
