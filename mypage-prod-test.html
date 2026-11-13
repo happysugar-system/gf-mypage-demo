@@ -406,7 +406,7 @@ function showLogin(){
 }
 
 function showPending(title,text,allowRequest = false){
-  const autoLinkEligible = title === '初回登録のご案内' || title === '管理者確認待ち' || title === '申請受付完了・管理者確認待ち';
+  const autoLinkEligible = title === '初回登録のご案内' || title === '管理者確認待ち' || title === 'LINE本人確認のご案内';
   $('gfLineAutoLinkButton').classList.toggle('hidden', !autoLinkEligible);
   $('gfLineAutoLinkStatus').textContent='';
   $('pendingTitle').textContent = title;
@@ -472,16 +472,15 @@ async function showRegistrationState(userId, currentCheck){
     );
   }else if(data.status === 'pending'){
     showPending(
-      '管理者確認待ち',
-      '初回登録申請を受け付けています。' +
-      'GOLD FIRSTでの本人確認・登録が完了するまでお待ちください。'
+      'LINE本人確認のご案内',
+      'LINE本人確認で既存DriverIDを自動連携できます。'
     );
     if(data.full_name && data.phone_number){
       // 申請済みの人を入力フォームに戻さない。
       $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
       $('gfLineAutoLinkButton').classList.remove('hidden');
       $('registrationMessage').textContent =
-        '本人確認情報は保存済みです。管理者による確認後にマイページをご案内します。';
+        'LINE本人確認を行うと、照合成功後にマイページを利用できます。';
     }else{
       $('identityFields').classList.remove('hidden');
       $('saveIdentityButton').classList.remove('hidden');
