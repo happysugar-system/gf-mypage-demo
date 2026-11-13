@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GOLD FIRST｜デモLINE本人確認</title>
+<style>body{font-family:system-ui,sans-serif;background:#f4f6f8;color:#17212b;margin:0;padding:24px}.panel{max-width:520px;margin:50px auto;background:white;border-radius:18px;padding:28px;box-shadow:0 5px 30px #16263b12}h1{font-size:23px}p{line-height:1.7}button{background:#06c755;color:white;border:0;border-radius:9px;padding:14px 20px;font-weight:700;width:100%;cursor:pointer}button:disabled{background:#a4acb2;cursor:not-allowed}.muted{color:#5d6772;font-size:14px}#status{white-space:pre-wrap}</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script></head>
+<body><main class="panel"><h1>GOLD FIRST｜デモ本人確認</h1>
+<p class="muted">テスト専用画面です。本番のドライバー情報・マイページには変更を加えません。</p>
+<p id="status" role="status">LINE認証の準備をしています…</p>
+<button id="verify" disabled>LINE本人確認を続ける</button>
+<p class="muted">認証設定とデモ本人情報が登録されるまで、紐づけは完了しません。</p></main>
+<script>
+'use strict';
+const DEMO_LIFF_ID='2012058414-9wPp65Lt';
+// Set only after a separate demo endpoint is deployed and audited. Never point at gf-line-mypage-link.
+const DEMO_LINK_ENDPOINT='https://zwprphmfgobkektzsuti.supabase.co/functions/v1/gf-demo-line-mypage-link';
+const status=document.getElementById('status'), button=document.getElementById('verify');
+let verifiedLiff=false;
+async function init(){
+ try{
+  if(!window.liff)throw Error('LINE SDKを読み込めませんでした');
+  await liff.init({liffId:DEMO_LIFF_ID});
+  verifiedLiff=liff.isLoggedIn();
+  if(!verifiedLiff){status.textContent='デモLINEログインへ移動します…';liff.login({redirectUri:location.href});return;}
+  
+  if(!/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/gf-demo-line-mypage-link$/.test(DEMO_LINK_ENDPOINT)){throw Error('デモ専用接続先が不正です');}
+  const challenge=new URLSearchParams(location.search).get('mypage_challenge');
+  if(!challenge||!/^[A-Za-z0-9_-]{43}$/.test(challenge)){status.textContent='有効なデモ用認証リンクがありません。';return;}
+  button.disabled=false;
+  button.onclick=async()=>{
+   button.disabled=true;status.textContent='本人確認中です…';
+   try{
+    const idToken=liff.getIDToken();
+    if(!idToken)throw Error('LINE認証情報を取得できません');
+    const response=await fetch(DEMO_LINK_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'complete',challenge,line_id_token:idToken})});
+    const result=await response.json();
+    if(!response.ok||result.linked!==true)throw Error('本人確認を完了できませんでした');
+    status.textContent='デモ本人確認が完了しました。デモマイページへ戻ってください。';
+   }catch(e){status.textContent=e.message||'通信エラーが発生しました';button.disabled=false;}
+  };
+  status.textContent='LINEログインを確認しました。デモ本人確認を開始できます。';
+ }catch(e){status.textContent='LINE認証の初期化に失敗しました。デモLINEから開き直してください。';}
+}
+init();
+</script></body></html>
