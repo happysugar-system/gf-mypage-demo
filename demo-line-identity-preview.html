@@ -23,7 +23,18 @@ async function init(){
   if(!verifiedLiff){status.textContent='デモLINEログインへ移動します…';liff.login({redirectUri:location.href});return;}
   
   if(!/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/gf-demo-line-mypage-link$/.test(DEMO_LINK_ENDPOINT)){throw Error('デモ専用接続先が不正です');}
-  const challenge=new URLSearchParams(location.search).get('mypage_challenge');
+  const searchParams=new URLSearchParams(location.search);
+  const liffState=searchParams.get('liff.state')||'';
+  const stateParams=new URLSearchParams(liffState.startsWith('?')?liffState.slice(1):liffState);
+  const invite=searchParams.get('invite')||stateParams.get('invite');
+  if(invite){
+   if(!/^[A-Za-z0-9_-]{43}$/.test(invite)){status.textContent='招待リンクの形式が不正です。';return;}
+   const target=new URL('./existing-driver-line-invite-demo.html',location.href);
+   target.searchParams.set('invite',invite);
+   location.replace(target.href);
+   return;
+  }
+  const challenge=searchParams.get('mypage_challenge')||stateParams.get('mypage_challenge');
   if(!challenge||!/^[A-Za-z0-9_-]{43}$/.test(challenge)){status.textContent='有効なデモ用認証リンクがありません。';return;}
   button.disabled=false;
   button.onclick=async()=>{
