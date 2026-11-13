@@ -143,6 +143,7 @@ button:disabled{opacity:.5}
   <p class="muted">しばらくお待ちください。</p>
 </section>
 
+<section id="demoLogin" class="card hidden"><h1>デモLINE連携済みアカウント</h1><p class="muted">既存マイページの画面構成を使う統合テストです。本番の申込情報には接続しません。</p><label>メールアドレス</label><input id="demoEmail" type="email" autocomplete="username"><label>パスワード</label><input id="demoPassword" type="password" autocomplete="current-password"><button onclick="demoSignIn()">デモ認証でログイン</button><p id="demoMessage" class="muted" role="status"></p></section>
 <section id="login" class="card hidden">
   <h1>メール認証でログイン</h1>
   <p class="muted">
@@ -296,6 +297,9 @@ button:disabled{opacity:.5}
 // 公開可能なPublishableキーのみ使用。
 // Secretキー・service_roleキーは絶対に記載しない。
 
+const GF_DEMO_MODE = new URLSearchParams(location.search).get('gf_demo') === '1';
+const GF_DEMO_URL = 'https://zwprphmfgobkektzsuti.supabase.co';
+const GF_DEMO_KEY_PLACEHOLDER = 'sb_publishable__wtlccECQwOVd3-LvRVFYQ_2dCUlPVR';
 const SUPABASE_URL =
   'https://tgxrnrqxafytyqfwwsag.supabase.co';
 
@@ -351,6 +355,7 @@ function setMessage(message){
 function showOnly(id){
   [
     'loading',
+    'demoLogin',
     'login',
     'pending',
     'errorPage',
@@ -361,6 +366,7 @@ function showOnly(id){
 }
 
 function showLogin(){
+  if(GF_DEMO_MODE){showOnly('demoLogin');return;}
   showOnly('login');
 }
 
@@ -670,6 +676,7 @@ async function verifyOtpCode(){
  * 本人のDriverIDを照合し、
  * 紐付く申込情報だけ取得する。
  */
+async function demoSignIn(){const email=$('demoEmail').value.trim(),password=$('demoPassword').value;const {error}=await authClient.auth.signInWithPassword({email,password});if(error){$('demoMessage').textContent='ログインに失敗しました';return;}await loadMyPage();}
 async function loadMyPage(options={}){
 
   if(!authClient) return;
@@ -688,6 +695,14 @@ async function loadMyPage(options={}){
 
     if(userError || !userData.user){
       showLogin();
+      return;
+    }
+
+    if(GF_DEMO_MODE){
+      const {data:profile,error:profileError}=await authClient.rpc('gf_demo_get_my_profile');
+      if(profileError)throw profileError;
+      if(!profile){showPending('LINE本人確認待ち','デモLINEの本人確認を完了してください。');return;}
+      showPending('本人確認済み：'+profile.display_name,'DriverID：'+profile.driver_id+'。デモ用の本人紐づけを確認しました。既存の申込・車両・書類データは別プロジェクトのため未接続です。');
       return;
     }
 
@@ -841,7 +856,7 @@ async function init(){
 
   if(
     !window.supabase ||
-    !SUPABASE_PUBLISHABLE_KEY.startsWith(
+    !(GF_DEMO_MODE ? GF_DEMO_KEY_PLACEHOLDER : SUPABASE_PUBLISHABLE_KEY).startsWith(
       'sb_publishable_'
     )
   ){
@@ -854,8 +869,8 @@ async function init(){
   }
 
   authClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY,
+    GF_DEMO_MODE ? GF_DEMO_URL : SUPABASE_URL,
+    GF_DEMO_MODE ? GF_DEMO_KEY_PLACEHOLDER : SUPABASE_PUBLISHABLE_KEY,
     {
       auth:{
         detectSessionInUrl:true,
