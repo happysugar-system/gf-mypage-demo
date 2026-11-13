@@ -37,9 +37,14 @@ Deno.serve(async req=>{
    if(!verify.ok)return respond(401,{error:"LINE verification failed"});
    const line=await verify.json();
    if(line.iss!=="https://access.line.me"||String(line.aud)!==channel||typeof line.sub!=="string"||!/^U[0-9a-fA-F]{32}$/.test(line.sub)||!Number.isFinite(line.exp)||line.exp<=Date.now()/1000)return respond(401,{error:"Invalid LINE identity"});
-   // Fail closed until an atomic, independently reviewed transaction is deployed.
-   // Do not separately update challenge, link and approval tables: races permit account takeover.
-   return respond(503,{error:"Demo atomic identity-link transaction not deployed"});
+   // The RPC locks the challenge, checks trusted demo-only identity mapping,
+   // checks account conflicts, inserts the link and consumes the challenge atomically.
+   // Only the server-side service role may execute the RPC.
+   const linked=await sb.rpc("gf_demo_complete_line_challenge",{
+    p_token_hash:await hash(data.challenge),p_line_user_id:line.sub
+   });
+   if(linked.error||linked.data!==true)return respond(409,{error:"本人確認できませんでした。デモ用の本人登録状況をご確認ください。"});
+   return respond(200,{linked:true});
   }
   return respond(400,{error:"Unknown operation"});
  }catch{return respond(503,{error:"Demo verification unavailable"});}
