@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GOLD FIRST｜既存ドライバー招待管理（デモ）</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#213b34;background:#f2f5f4}*{box-sizing:border-box}main{max-width:580px;margin:24px auto;padding:22px;background:white;border-radius:16px;box-shadow:0 2px 14px #0001}h1{font-size:22px}h2{font-size:18px;margin-top:28px}label{display:block;margin-top:15px;font-weight:650}input{width:100%;padding:12px;font-size:16px;margin-top:5px;border:1px solid #bacdc7;border-radius:9px}button{background:#176a54;color:white;border:0;border-radius:9px;padding:13px 16px;margin-top:15px;font-size:15px;font-weight:bold;cursor:pointer}button:disabled{opacity:.5}button.secondary{background:#e4ece9;color:#245144}.muted{color:#657671;font-size:13px;line-height:1.7}.hidden{display:none}pre{white-space:pre-wrap;word-break:break-all;background:#f4f7f6;padding:12px;border-radius:9px}#result{overflow-wrap:anywhere}a{overflow-wrap:anywhere}
+</style></head><body><main>
+<h1>GOLD FIRST｜既存ドライバー招待管理</h1>
+<p class="muted">開発用デモ。本人と連絡先を確認した既存ドライバーにのみ、一度きりの招待リンクを発行します。リンクを第三者に渡さないでください。</p>
+<section id="loginPanel">
+<h2>管理者ログイン</h2>
+<label>デモSupabase登録メール<input id="email" type="email" autocomplete="email"></label>
+<label>パスワード<input id="password" type="password" autocomplete="current-password"></label>
+<button id="login">ログイン</button>
+</section>
+<section id="adminPanel" class="hidden">
+<p id="signedIn" class="muted"></p>
+<button id="logout" class="secondary">ログアウト</button>
+<h2>招待リンクを発行</h2>
+<label>既存DriverID<input id="driverId" placeholder="D000001" maxlength="13" autocomplete="off"></label>
+<p class="muted">デモに登録済みのDriverIDのみ対象。管理者権限はサーバー側で検証されます。発行リンクの有効期限は24時間、使用は1回限りです。</p>
+<button id="issue">招待リンクを発行する</button>
+<div id="result" aria-live="polite"></div>
+</section>
+<pre id="status" aria-live="polite">認証状態を確認しています…</pre>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const URL="https://zwprphmfgobkektzsuti.supabase.co";
+const KEY="sb_publishable__wtlccECQwOVd3-LvRVFYQ_2dCUlPVR";
+const FN=URL+"/functions/v1/gf-demo-existing-driver-invite";
+const sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:"gf-demo-invite-admin"}});
+const $=id=>document.getElementById(id);
+function status(s){$("status").textContent=s}
+function display(session){
+ $("loginPanel").classList.toggle("hidden",!!session);
+ $("adminPanel").classList.toggle("hidden",!session);
+ $("signedIn").textContent=session?"ログイン中："+(session.user?.email||""):"";
+}
+async function init(){
+ try{const {data,error}=await sb.auth.getSession();if(error)throw error;display(data.session);status(data.session?"管理者ログイン済み。招待発行権限は発行時に検証します。":"デモの管理者アカウントでログインしてください。");}
+ catch(e){status("認証確認エラー："+e.message)}
+}
+$("login").onclick=async()=>{
+ $("login").disabled=true;
+ try{
+  const email=$("email").value.trim(),password=$("password").value;
+  if(!email||!password)throw Error("メールとパスワードを入力してください");
+  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error)throw error;
+  $("password").value="";display(data.session);status("ログイン成功。");
+ }catch(e){status("ログイン失敗："+e.message)}
+ finally{$("login").disabled=false}
+};
+$("logout").onclick=async()=>{await sb.auth.signOut();display(null);$("result").textContent="";status("ログアウトしました。")};
+$("issue").onclick=async()=>{
+ $("issue").disabled=true;$("result").textContent="";
+ try{
+  const driverId=$("driverId").value.trim();
+  if(!/^D[0-9]{1,12}$/.test(driverId))throw Error("DriverIDの形式を確認してください");
+  const {data:{session},error}=await sb.auth.getSession();
+  if(error||!session?.access_token)throw Error("管理者ログインが必要です");
+  const resp=await fetch(FN,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":"Bearer "+session.access_token},body:JSON.stringify({action:"issue",driver_id:driverId}),cache:"no-store"});
+  const out=await resp.json().catch(()=>({}));
+  if(!resp.ok)throw Error(out.error||"発行できませんでした（HTTP "+resp.status+"）");
+  if(!/^[A-Za-z0-9_-]{43}$/.test(out.invite_code||""))throw Error("発行結果が不正です");
+  const link="https://happysugar-system.github.io/gf-mypage-demo/existing-driver-line-invite-demo.html?invite="+encodeURIComponent(out.invite_code);
+  const p=document.createElement("p");p.textContent="招待コードを発行しました。発行したリンクはこの画面を閉じると再表示できません。";
+  const a=document.createElement("a");a.href=link;a.textContent=link;a.rel="noreferrer";a.referrerPolicy="no-referrer";
+  const copy=document.createElement("button");copy.textContent="招待リンクをコピー";copy.onclick=()=>navigator.clipboard.writeText(link).then(()=>status("リンクをコピーしました。本人確認済みの宛先にのみ送ってください。")).catch(()=>status("コピーできません。リンクを手動でコピーしてください。"));
+  $("result").append(p,a,document.createElement("br"),copy);
+  status("発行完了。まだ送信していません。本人に確認した宛先へ個別送付してください。");
+ }catch(e){status("発行エラー："+e.message)}
+ finally{$("issue").disabled=false}
+};
+init();
+</script></body></html>
