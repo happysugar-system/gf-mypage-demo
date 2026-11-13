@@ -1,0 +1,1103 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>【テスト】GOLD FIRST｜ドライバーマイページ</title>
+
+<style>
+:root{
+  font-family:system-ui,-apple-system,sans-serif;
+  color:#17242b;
+  background:#f4f6f6;
+}
+*{box-sizing:border-box}
+body{margin:0}
+header{
+  background:#153c36;
+  color:white;
+  padding:21px 18px;
+  font-weight:700;
+  letter-spacing:.05em;
+}
+main{
+  max-width:520px;
+  margin:20px auto;
+  padding:0 14px;
+}
+.card{
+  background:white;
+  border-radius:16px;
+  padding:22px;
+  box-shadow:0 2px 12px #17332b13;
+  margin-bottom:15px;
+}
+h1{font-size:20px;margin:0 0 10px}
+h2{font-size:17px;margin:0 0 16px}
+.muted{
+  color:#6c7b7c;
+  font-size:13px;
+  line-height:1.7;
+}
+label{
+  display:block;
+  font-weight:600;
+  margin:18px 0 7px;
+}
+input{
+  width:100%;
+  font-size:16px;
+  padding:13px;
+  border:1px solid #ccd7d4;
+  border-radius:9px;
+}
+button{
+  background:#166b56;
+  color:white;
+  border:0;
+  border-radius:9px;
+  padding:14px 17px;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+  width:100%;
+  margin-top:14px;
+}
+button:disabled{opacity:.5}
+.secondary{
+  background:#e7eeeb;
+  color:#214b42;
+}
+.status{
+  border-radius:10px;
+  background:#e9f3ee;
+  padding:14px;
+  margin:14px 0;
+  font-weight:700;
+  color:#186b53;
+}
+.step{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:10px 0;
+  border-bottom:1px solid #edf0ef;
+}
+.dot{
+  width:29px;
+  height:29px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#e9eeed;
+  color:#5b6b67;
+  flex:none;
+}
+.step.current .dot{
+  background:#166b56;
+  color:white;
+}
+.step.done .dot{
+  background:#a2cdb6;
+  color:#124c3c;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 0;
+  border-bottom:1px solid #edf0ef;
+}
+.row span:first-child{color:#667572}
+.row strong{
+  text-align:right;
+  overflow-wrap:anywhere;
+}
+.hidden{display:none!important}
+#message{
+  margin-top:14px;
+  font-size:14px;
+  color:#aa3d30;
+  white-space:pre-wrap;
+}
+.notice{
+  font-size:12px;
+  color:#666;
+  border-top:1px solid #eee;
+  padding-top:14px;
+  margin-top:20px;
+}
+</style>
+</head>
+
+<body>
+<header>【新本番接続テスト】 
+  GOLD FIRST <small>｜ドライバーマイページ</small>
+</header>
+
+<main>
+
+<section id="loading" class="card">
+  <h1>認証状態を確認しています</h1>
+  <p class="muted">しばらくお待ちください。</p>
+</section>
+
+<section id="login" class="card hidden">
+  <h1>メール認証でログイン</h1>
+  <p class="muted">
+    メールアドレスに8桁の認証コードを送信します。
+  </p>
+
+  <label for="email">メールアドレス</label>
+  <input
+    id="email"
+    type="email"
+    autocomplete="email"
+    placeholder="example@example.com"
+  >
+
+  <button id="send" onclick="sendCode()">
+    認証コードを送信
+  </button>
+
+  <div id="message" role="status"></div>
+
+  <div id="otpFields" class="hidden">
+    <label for="otpCode">メールに届いた8桁の認証コード</label>
+    <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]{8}" placeholder="8桁のコード">
+    <button id="verifyOtpButton" onclick="verifyOtpCode()">認証してログイン</button>
+    <p id="otpMessage" class="muted" role="status"></p>
+  </div>
+</section>
+
+<section id="pending" class="card hidden">
+  <h1 id="pendingTitle">本人確認待ち</h1>
+
+  <p class="muted" id="pendingText">
+    メール認証が完了しました。
+    現在、GOLD FIRSTで登録情報を確認しています。
+  </p>
+
+  <div id="identityFields" class="hidden">
+    <label for="identityName">氏名（必須）</label>
+    <input id="identityName" type="text" maxlength="80" autocomplete="name" placeholder="例：山田 太郎">
+    <label for="identityPhone">電話番号（必須）</label>
+    <input id="identityPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="例：09012345678">
+    <p class="muted">本人確認のため管理者が確認します。DriverIDは入力不要です。</p>
+  </div>
+  <button id="saveIdentityButton" class="hidden" onclick="saveIdentity()">本人確認情報を保存する</button>
+  <button id="registerRequestButton" class="hidden" onclick="submitRegistrationRequest()">
+    初回登録を申請する
+  </button>
+  <button id="gfLineAutoLinkButton" class="hidden" type="button" onclick="beginLineAutoLink()">LINE本人確認してマイページを開く</button>
+  <p id="gfLineAutoLinkStatus" class="muted" role="status"></p>
+  <p id="registrationMessage" class="muted" role="status"></p>
+
+  <p id="gfWaitAutoCheck" class="muted" role="status" style="margin-top:12px">登録状況を自動確認しています。画面を開いたままで大丈夫です。</p>
+  <button class="secondary" onclick="loadMyPage()">
+    登録状況を再確認
+  </button>
+
+  <button class="secondary" onclick="logout()">
+    ログアウト
+  </button>
+</section>
+
+<section id="errorPage" class="card hidden">
+  <h1>登録情報を確認できませんでした</h1>
+  <p class="muted" id="errorText"></p>
+
+  <button onclick="loadMyPage()">
+    もう一度確認
+  </button>
+
+  <button class="secondary" onclick="logout()">
+    ログアウト
+  </button>
+</section>
+
+<section id="mypage" class="hidden">
+
+  <div class="card">
+    <h1>車両のお申込み状況</h1>
+    <p class="muted" id="welcome"></p>
+    <div class="status" id="status"></div>
+    <div id="steps"></div>
+  </div>
+
+  <div class="card">
+    <h2>申込情報</h2>
+
+    <div class="row">
+      <span>申込番号</span>
+      <strong id="receipt"></strong>
+    </div>
+
+    <div class="row">
+      <span>受付状況</span>
+      <strong id="receptionStatus"></strong>
+    </div>
+
+    <div class="row">
+      <span>受付日時</span>
+      <strong id="receivedAt"></strong>
+    </div>
+
+    <div class="row">
+      <span>納車希望</span>
+      <strong id="deliveryWish"></strong>
+    </div>
+
+    <div class="row">
+      <span>稼働開始希望</span>
+      <strong id="startWish"></strong>
+    </div>
+
+    <div class="row" id="vehicleRow" style="display:none">
+      <span>車番</span>
+      <strong id="vehicle"></strong>
+    </div>
+
+    <div class="row">
+      <span>契約状況</span>
+      <strong id="contract"></strong>
+    </div>
+
+    <div class="row" id="vehicleStatusRow" style="display:none">
+      <span>車両状況</span>
+      <strong id="vehicleStatus"></strong>
+    </div>
+
+    <div class="row" id="nameChangeRow" style="display:none">
+      <span>名義変更日</span>
+      <strong id="nameChange"></strong>
+    </div>
+
+    <div class="row" id="inspectionExpiryRow" style="display:none">
+      <span>車検満了日</span>
+      <strong id="inspectionExpiry"></strong>
+    </div>
+
+    <div class="row" id="returnScheduledRow" style="display:none">
+      <span>返却予定日</span>
+      <strong id="returnScheduled"></strong>
+    </div>
+
+    <button class="secondary" onclick="loadMyPage()">
+      最新情報に更新
+    </button>
+
+    <button class="secondary" onclick="logout()">
+      ログアウト
+    </button>
+  </div>
+
+  <div class="card" id="contactCard">
+    <h2>本人情報・連絡先</h2>
+    <p class="muted">登録内容の確認と変更申請ができます。変更は確認後に反映されます。</p>
+    <div class="row"><span>氏名</span><strong id="contactName">確認中</strong></div>
+    <div class="row"><span>電話番号</span><strong id="contactPhone">確認中</strong></div>
+    <div class="row"><span>連絡先メール</span><strong id="contactEmail">確認中</strong></div>
+    <div class="row"><span>ログイン用メール</span><strong id="loginEmail">確認中</strong></div>
+    <p class="muted">ログイン用メールは連絡先とは別です。連絡先メールの変更だけではログイン先は変わりません。</p>
+
+    <button id="editContactButton" class="secondary" type="button"
+      onclick="toggleContactEditor()">連絡先を変更する</button>
+    <div id="contactEditor" class="hidden">
+      <label for="newContactPhone">新しい電話番号（変更時のみ）</label>
+      <input id="newContactPhone" type="tel" inputmode="tel" autocomplete="tel"
+        placeholder="09012345678" maxlength="13">
+      <label for="newContactEmail">新しい連絡先メール（変更時のみ）</label>
+      <input id="newContactEmail" type="email" autocomplete="email"
+        placeholder="example@example.com" maxlength="254">
+      <button id="submitContactButton" type="button" onclick="submitContactChange()">
+        変更を申請する
+      </button>
+      <p class="muted">新しいメールアドレスはGOLD FIRST側で本人確認したうえで反映します。</p>
+    </div>
+    <p id="contactRequestStatus" class="muted" role="status"></p>
+  </div>
+
+</section>
+
+<p class="notice">
+  GOLD FIRST ドライバーマイページ<br>
+  申込情報はGOLD FIRSTで確認・更新された内容を表示します。
+</p>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+<script>
+// 公開可能なPublishableキーのみ使用。
+// Secretキー・service_roleキーは絶対に記載しない。
+
+const SUPABASE_URL =
+  'https://tgxrnrqxafytyqfwwsag.supabase.co';
+
+const SUPABASE_PUBLISHABLE_KEY =
+  'sb_publishable_Xu-kPNJqnHFGoGb9rI5SVg_h1B2f-dW';
+
+const REDIRECT_URL =
+  'https://happysugar-system.github.io/gf-mypage-demo/';
+
+const $ = id => document.getElementById(id);
+
+let authClient = null;
+
+let gfAutoCheckTimer=null;
+let gfAutoCheckStartedAt=0;
+let gfAutoCheckInFlight=false;
+function gfStopAutoCheck(){
+  if(gfAutoCheckTimer)clearTimeout(gfAutoCheckTimer);
+  gfAutoCheckTimer=null;gfAutoCheckStartedAt=0;
+}
+function gfScheduleAutoCheck(){
+  if(!document.getElementById('gfWaitAutoCheck'))return;
+  if(!gfAutoCheckStartedAt)gfAutoCheckStartedAt=Date.now();
+  const seconds=Math.floor((Date.now()-gfAutoCheckStartedAt)/1000);
+  const el=$('gfWaitAutoCheck');
+  if(seconds>=180){
+    el.textContent='自動確認を一時停止しました。必要な場合は「登録状況を再確認」を押してください。';
+    gfStopAutoCheck();
+    return;
+  }
+  el.textContent='約10秒ごとに登録状況を自動確認しています（'+seconds+'秒経過）。';
+  if(gfAutoCheckTimer)clearTimeout(gfAutoCheckTimer);
+  gfAutoCheckTimer=setTimeout(async()=>{
+    gfAutoCheckTimer=null;
+    if(document.visibilityState==='hidden'){
+      gfScheduleAutoCheck();
+      return;
+    }
+    if(gfAutoCheckInFlight)return;
+    gfAutoCheckInFlight=true;
+    try{await loadMyPage({isAutoCheck:true});}
+    finally{gfAutoCheckInFlight=false;}
+  },10000);
+}
+
+let checkSequence = 0;
+let registrationSubmitting = false;
+let contactSubmitting = false;
+let contactDriverId = null;
+let contactPending = false;
+
+function setMessage(message){
+  $('message').textContent = message;
+}
+
+function showOnly(id){
+  [
+    'loading',
+    'login',
+    'pending',
+    'errorPage',
+    'mypage'
+  ].forEach(name => {
+    $(name).classList.toggle('hidden',name !== id);
+  });
+}
+
+function showLogin(){
+  showOnly('login');
+}
+
+function showPending(title,text,allowRequest = false){
+  const autoLinkEligible = title === '初回登録のご案内' || title === '管理者確認待ち' || title === 'LINE本人確認のご案内';
+  $('gfLineAutoLinkButton').classList.toggle('hidden', !autoLinkEligible);
+  $('gfLineAutoLinkStatus').textContent='';
+  $('pendingTitle').textContent = title;
+  $('pendingText').textContent = text;
+  $('registerRequestButton').classList.toggle('hidden', !allowRequest);
+  $('registerRequestButton').disabled = registrationSubmitting;
+  $('registrationMessage').textContent = '';
+  $('identityFields').classList.toggle('hidden', !allowRequest);
+  $('saveIdentityButton').classList.add('hidden');
+  showOnly('pending');
+  if(title !== '登録内容の確認が必要です' && !allowRequest)gfScheduleAutoCheck();
+  else gfStopAutoCheck();
+}
+
+/**
+ * 151-C：本人の登録申請状態を取得する。
+ * DriverIDは申請者自身には設定させない。
+ */
+const GF_LINE_LINK_ENDPOINT = SUPABASE_URL + '/functions/v1/gf-line-mypage-link';
+const GF_LINE_LIFF_URL = 'https://happysugar-system.github.io/gf-ledger/vehicle-request-mypage-preview.html';
+let gfLineLinkBusy = false;
+async function beginLineAutoLink(){
+  if(!authClient || gfLineLinkBusy)return;
+  const button=$('gfLineAutoLinkButton'),status=$('gfLineAutoLinkStatus');
+  gfLineLinkBusy=true;button.disabled=true;
+  status.textContent='LINE本人確認を準備しています…';
+  try{
+    const {data,error}=await authClient.auth.getSession();
+    if(error || !data.session?.access_token)throw new Error('メールログインが必要です');
+    const response=await fetch(GF_LINE_LINK_ENDPOINT,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+data.session.access_token},
+      body:JSON.stringify({action:'begin'})
+    });
+    const result=await response.json();
+    if(!response.ok || !/^[A-Za-z0-9_-]{43}$/.test(result.challenge||'')){
+      throw new Error(response.status===429?'しばらく時間をおいて再度お試しください。':'LINE本人確認を開始できませんでした。');
+    }
+    // The challenge is short-lived and one-time. No DriverID or user PII in URL.
+    status.textContent='LINE認証画面を開きます。完了後、この画面へ戻ってください。';
+    window.location.assign(GF_LINE_LIFF_URL+'?mypage_challenge='+encodeURIComponent(result.challenge));
+  }catch(err){
+    status.textContent=err.message||'LINE本人確認を開始できませんでした。';
+    gfLineLinkBusy=false;button.disabled=false;
+  }
+}
+
+async function showRegistrationState(userId, currentCheck){
+  const {data, error} = await authClient
+    .from('gf_mypage_registration_requests')
+    .select('status,created_at,full_name,phone_number')
+    .eq('auth_user_id',userId)
+    .maybeSingle();
+
+  if(currentCheck !== checkSequence) return;
+  if(error) throw error;
+
+  if(!data){
+    showPending(
+      '初回登録のご案内',
+      'メール認証が完了しました。LINE本人確認で自動連携できます。',
+      false
+    );
+  }else if(data.status === 'pending'){
+    showPending(
+      'LINE本人確認のご案内',
+      'LINE本人確認で既存DriverIDを自動連携できます。'
+    );
+    if(data.full_name && data.phone_number){
+      // 申請済みの人を入力フォームに戻さない。
+      $('pendingTitle').textContent = '申請受付完了・管理者確認待ち';
+      $('gfLineAutoLinkButton').classList.remove('hidden');
+      $('registrationMessage').textContent =
+        'LINE本人確認を行うと、照合成功後にマイページを利用できます。';
+    }else{
+      $('identityFields').classList.remove('hidden');
+      $('saveIdentityButton').classList.remove('hidden');
+      $('identityName').value = data.full_name || '';
+      $('identityPhone').value = data.phone_number || '';
+      $('registrationMessage').textContent = '氏名と電話番号を入力して保存してください。';
+    }
+  }else if(data.status === 'rejected'){
+    showPending(
+      '登録内容の確認が必要です',
+      '登録申請についてGOLD FIRSTへのお問い合わせが必要です。' +
+      '申請者ご自身では再申請できません。'
+    );
+  }else{
+    showPending(
+      'DriverIDの連携待ち',
+      '登録申請は承認済みですが、マイページの利用設定がまだ完了していません。' +
+      'GOLD FIRSTにお問い合わせください。'
+    );
+  }
+}
+
+/**
+ * 151-C：ログイン本人の初回登録申請を1件だけ作成する。
+ * 申請の承認・DriverID付与は管理者側で別途実装する。
+ */
+async function submitRegistrationRequest(){
+  if(!authClient || registrationSubmitting) return;
+
+  registrationSubmitting = true;
+  $('registerRequestButton').disabled = true;
+  $('registrationMessage').textContent = '申請を送信しています…';
+
+  try{
+    const {data:userData,error:userError} =
+      await authClient.auth.getUser();
+    if(userError || !userData.user){
+      throw new Error('ログイン状態を確認できませんでした');
+    }
+
+    // 送信直前にも既存のDriverID紐付けを確認する
+    const {data:link,error:linkError} = await authClient
+      .from('gf_mypage_links')
+      .select('driver_id')
+      .eq('auth_user_id',userData.user.id)
+      .maybeSingle();
+    if(linkError) throw linkError;
+    if(link && link.driver_id){
+      await loadMyPage();
+      return;
+    }
+
+    const identity = readIdentity();
+    if(!identity) return;
+    const {error:insertError} = await authClient
+      .from('gf_mypage_registration_requests')
+      .insert({auth_user_id:userData.user.id,...identity});
+
+    // 二重送信などで一意制約に当たっても現在の状態を再取得
+    if(insertError && insertError.code !== '23505'){
+      throw insertError;
+    }
+    await loadMyPage();
+  }catch(err){
+    $('registrationMessage').textContent =
+      '申請を完了できませんでした。時間をおいて再度お試しください。';
+    console.error('登録申請エラー',err.code || err.name || 'unknown');
+  }finally{
+    registrationSubmitting = false;
+    $('registerRequestButton').disabled = false;
+  }
+}
+
+
+function readIdentity(){
+  const full_name = $('identityName').value.trim();
+  const phone_number = $('identityPhone').value.replace(/[\sー－-]/g,'').trim();
+  if(!full_name || full_name.length > 80 || !/^0[0-9]{9,10}$/.test(phone_number)){
+    $('registrationMessage').textContent = '氏名と電話番号（ハイフンなし10～11桁）を入力してください。';
+    return null;
+  }
+  return {full_name,phone_number};
+}
+async function saveIdentity(){
+  const identity = readIdentity();
+  if(!identity || !authClient) return;
+  $('saveIdentityButton').disabled = true;
+  $('registrationMessage').textContent = '保存中…';
+  try{
+    const {data:user,error:userError} = await authClient.auth.getUser();
+    if(userError || !user.user) throw new Error('認証エラー');
+    const {data,error} = await authClient.from('gf_mypage_registration_requests')
+      .update(identity).eq('auth_user_id',user.user.id).eq('status','pending')
+      .select('auth_user_id').maybeSingle();
+    if(error || !data) throw error || new Error('更新対象なし');
+    // 保存済みの画面を明確に表示して、連続送信を防ぐ。
+    showPending(
+      '本人確認情報を保存しました',
+      '申請を受け付けました。GOLD FIRSTの管理者が本人確認を行います。' +
+      '確認が終わるまではマイページの情報は表示されません。'
+    );
+    $('registrationMessage').textContent = '保存完了。これ以上の操作は必要ありません。';
+  }catch(err){
+    $('registrationMessage').textContent = '保存できませんでした。時間をおいて再度お試しください。';
+    console.error('本人確認情報の保存エラー',err.code || err.name || 'unknown');
+  }finally{$('saveIdentityButton').disabled = false;}
+}
+
+function toggleContactEditor(){
+  if(contactPending) return;
+  $('contactEditor').classList.toggle('hidden');
+}
+
+async function loadContactInfo(expectedDriverId){
+  contactDriverId = null;
+  $('contactName').textContent = '確認中';
+  $('contactPhone').textContent = '確認中';
+  $('contactEmail').textContent = '確認中';
+  $('loginEmail').textContent = '確認中';
+  $('contactRequestStatus').textContent = '';
+  $('contactEditor').classList.add('hidden');
+  try{
+    const {data:rows,error} =
+      await authClient.rpc('gf_mypage_contact_for_current_user');
+    if(error) throw error;
+    const item = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    if(!item || item.driver_id !== expectedDriverId)
+      throw new Error('本人照合不一致');
+    contactDriverId = expectedDriverId;
+    $('contactName').textContent = item.full_name || '未登録';
+    $('contactPhone').textContent = item.phone_number || '未登録';
+    $('contactEmail').textContent = item.email || '未登録';
+    $('loginEmail').textContent = item.login_email || '未登録';
+
+    const {data:requests,error:reqError} = await authClient
+      .from('gf_mypage_contact_change_requests')
+      .select('id,status,created_at,requested_phone,requested_email')
+      .order('created_at',{ascending:false}).limit(1);
+    if(reqError) throw reqError;
+    const latest = requests?.[0];
+    contactPending = latest?.status === 'pending';
+    $('editContactButton').disabled = contactPending;
+    $('contactRequestStatus').textContent = contactPending
+      ? '連絡先の変更申請を受け付けました。確認・反映待ちです。'
+      : latest?.status === 'rejected'
+      ? '前回の申請は確認が必要です。新しい申請ができます。'
+      : '';
+  }catch(err){
+    console.error('連絡先取得エラー',err.code || err.name || 'unknown');
+    contactDriverId = null;
+    $('contactRequestStatus').textContent =
+      '連絡先を取得できませんでした。ページを更新してください。';
+    $('editContactButton').disabled = true;
+  }
+}
+
+async function submitContactChange(){
+  if(!authClient || !contactDriverId || contactSubmitting || contactPending) return;
+  const phone = $('newContactPhone').value.replace(/[\\sー－-]/g,'').trim();
+  const email = $('newContactEmail').value.trim().toLowerCase();
+  if(!phone && !email){
+    $('contactRequestStatus').textContent = '変更する項目を入力してください。'; return;
+  }
+  if(phone && !/^0[0-9]{9,10}$/.test(phone)){
+    $('contactRequestStatus').textContent = '電話番号は10〜11桁で入力してください。'; return;
+  }
+  if(email && (email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))){
+    $('contactRequestStatus').textContent = 'メールアドレスを確認してください。'; return;
+  }
+  if(!confirm('入力した連絡先の変更をGOLD FIRSTに申請します。よろしいですか？')) return;
+  contactSubmitting = true;
+  $('submitContactButton').disabled = true;
+  try {
+    const {data:userData,error:userError} = await authClient.auth.getUser();
+    if(userError || !userData.user) throw new Error('認証エラー');
+    const {error} = await authClient.from('gf_mypage_contact_change_requests')
+      .insert({
+        auth_user_id:userData.user.id,
+        driver_id:contactDriverId,
+        requested_phone:phone || null,
+        requested_email:email || null
+      });
+    if(error) throw error;
+    contactPending = true;
+    $('editContactButton').disabled = true;
+    $('contactEditor').classList.add('hidden');
+    $('contactRequestStatus').textContent =
+      '変更申請を受け付けました。確認後にドライバーマスターへ反映されます。';
+  } catch(err) {
+    console.error('連絡先申請エラー',err.code || err.name || 'unknown');
+    $('contactRequestStatus').textContent = err.code === '23505'
+      ? '確認待ちの変更申請があります。'
+      : '申請を保存できませんでした。時間をおいて再度お試しください。';
+  }finally {
+    contactSubmitting = false;
+    $('submitContactButton').disabled = false;
+  }
+}
+
+function showError(message){
+  $('errorText').textContent = message;
+  showOnly('errorPage');
+}
+
+/**
+ * マイページ表示
+ * 既存の5段階の進捗表示を維持する。
+ */
+function showPage(d){
+
+  $('welcome').textContent =
+    (d.name ? d.name + ' 様 / ' : '') +
+    (d.driverId || '');
+
+  $('status').textContent =
+    '現在：' + (d.stage || '確認中');
+
+  [
+    'receipt',
+    'receptionStatus',
+    'receivedAt',
+    'deliveryWish',
+    'startWish',
+    'contract'
+  ].forEach(k => {
+    $(k).textContent = d[k] || '未定';
+  });
+
+  // 車両未割当や日付空欄の場合は、行ごと非表示
+  [
+    ['vehicleStatusRow', 'vehicleStatus', d.vehicleStatus],
+    ['nameChangeRow', 'nameChange', d.nameChange],
+    ['inspectionExpiryRow', 'inspectionExpiry', d.inspectionExpiry],
+    ['returnScheduledRow', 'returnScheduled', d.returnScheduled]
+  ].forEach(([rowId, fieldId, value]) => {
+    $(rowId).style.display = value ? '' : 'none';
+    $(fieldId).textContent = value || '';
+  });
+
+  $('vehicleRow').style.display =
+    d.vehicle ? '' : 'none';
+
+  $('vehicle').textContent = d.vehicle || '';
+
+  const steps = [
+    '申込受付',
+    '契約締結',
+    '車両準備中',
+    '名義変更',
+    '貸出中'
+  ];
+
+  const current = steps.indexOf(d.stage);
+
+  $('steps').replaceChildren();
+
+  steps.forEach((step,i) => {
+
+    const el = document.createElement('div');
+
+    el.className =
+      'step ' +
+      (i < current ? 'done' :
+       i === current ? 'current' : '');
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+
+    dot.textContent =
+      i < current ? '✓' : String(i + 1);
+
+    const title = document.createElement('span');
+    title.textContent = step;
+
+    el.append(dot,title);
+    $('steps').append(el);
+  });
+
+  showOnly('mypage');
+}
+
+/**
+ * メールリンク認証
+ * 既存の動作を維持する。
+ */
+async function sendCode(){
+
+  if(!authClient){
+    setMessage('Supabaseの設定を確認してください');
+    return;
+  }
+
+  const email = $('email').value.trim();
+
+  if(!email){
+    setMessage('メールアドレスを入力してください');
+    return;
+  }
+
+  $('send').disabled = true;
+  setMessage('認証メールを送信中…');
+  $('otpFields').classList.add('hidden');
+  $('otpCode').value = '';
+
+  try{
+
+    const {error} =
+      await authClient.auth.signInWithOtp({
+        email,
+        options:{
+          emailRedirectTo:REDIRECT_URL
+        }
+      });
+
+    if(error) throw error;
+
+    $('otpFields').classList.remove('hidden');
+    setMessage('認証コードを送信しました。メールに届いた8桁のコードを入力してください。');
+
+  }catch(err){
+
+    setMessage(
+      '送信できませんでした：' + err.message
+    );
+
+  }finally{
+    $('send').disabled = false;
+  }
+}
+
+/**
+ * メールに届いた8桁のOTPコードでログインする。
+ */
+async function verifyOtpCode(){
+  if(!authClient) return;
+  const email = $('email').value.trim();
+  const token = $('otpCode').value.trim();
+  if(!email || !/^[0-9]{8}$/.test(token)){
+    $('otpMessage').textContent = '8桁の認証コードを入力してください。';
+    return;
+  }
+  $('verifyOtpButton').disabled = true;
+  $('otpMessage').textContent = '認証中…';
+  try{
+    const {error} = await authClient.auth.verifyOtp({email,token,type:'email'});
+    if(error) throw error;
+    $('otpMessage').textContent = '';
+    await loadMyPage();
+  }catch(err){
+    $('otpMessage').textContent = '認証できませんでした。コードを確認するか、再送信してください。';
+    console.error('OTP認証エラー',err.code || err.name || 'unknown');
+  }finally{
+    $('verifyOtpButton').disabled = false;
+  }
+}
+
+/**
+ * 139-C
+ * 本人のDriverIDを照合し、
+ * 紐付く申込情報だけ取得する。
+ */
+async function loadMyPage(options={}){
+
+  if(!authClient) return;
+
+  const currentCheck = ++checkSequence;
+
+  if(!options.isAutoCheck) showOnly('loading');
+
+  try{
+
+    // ① 認証ユーザー確認
+    const {data:userData,error:userError} =
+      await authClient.auth.getUser();
+
+    if(currentCheck !== checkSequence) return;
+
+    if(userError || !userData.user){
+      showLogin();
+      return;
+    }
+
+    // ② DriverIDの紐付け確認
+    let {data:link,error:linkError} =
+      await authClient
+        .from('gf_mypage_links')
+        .select('driver_id')
+        .eq('auth_user_id',userData.user.id)
+        .maybeSingle();
+
+    if(currentCheck !== checkSequence) return;
+
+    if(linkError) throw linkError;
+
+    // 管理者が本番ドライバーマスターで本人確認して承認するまで、
+    // DriverIDを自動紐付けしない。旧テストマスター経由の自動連携は禁止。
+
+    if(!link || !link.driver_id){
+      await showRegistrationState(userData.user.id,currentCheck);
+      return;
+    }
+
+    gfStopAutoCheck();
+
+    // ③ 本人の申込情報を取得
+    // Supabase側のRLSでも本人のDriverIDに制限
+    const {data:applications,error:appError} =
+      await authClient
+        .from('gf_mypage_applications_prod')
+        .select(
+          'receipt_id,driver_id,' +
+          'received_at,reception_status,' +
+          'contract_status,contract_updated_at,' +
+          'delivery_wish,start_wish,updated_at'
+        )
+        .eq('driver_id',link.driver_id)
+        .order('updated_at',{ascending:false})
+        .order('receipt_id',{ascending:false})
+        .limit(1);
+
+    if(currentCheck !== checkSequence) return;
+
+    if(appError) throw appError;
+
+    if(!applications || applications.length === 0){
+
+      showPending(
+        '申込情報の連携待ち',
+        'DriverIDとの紐付けを確認しました。' +
+        '申込情報が登録されるまでお待ちください。'
+      );
+
+      return;
+    }
+
+    const app = applications[0];
+
+    // 念のためDriverIDを再照合
+    if(app.driver_id !== link.driver_id){
+      throw new Error('DriverIDの照合に失敗しました');
+    }
+
+    // ④ 本人のDriverIDに紐づく車両1台だけを安全なRPCから取得
+    // 車両台帳の全項目はブラウザへ公開しない。
+    // 車両が未割当・複数割当の場合は非表示。
+    const {data:vehicleRows,error:vehicleError} =
+      await authClient.rpc('gf_mypage_vehicle_summary_for_current_user');
+
+    if(currentCheck !== checkSequence) return;
+
+    if(vehicleError){
+      // 受付情報の表示は維持し、車両情報だけ未取得とする
+      console.error(
+        '車両情報取得エラー',
+        vehicleError.code || 'unknown'
+      );
+    }
+
+    const vehicleInfo =
+      !vehicleError && Array.isArray(vehicleRows) && vehicleRows.length === 1
+        ? vehicleRows[0] : null;
+
+    // ⑤ 貸出中など、台帳の現在状態を優先して進捗を判定
+    const contractStatus = String(app.contract_status ?? '').trim();
+    const completedStatuses = ['契約締結済み','契約締結済','契約完了'];
+    const vehicleStatus = String(vehicleInfo?.vehicle_status || '').trim();
+    const contractDone = completedStatuses.includes(contractStatus);
+    const stage = vehicleStatus === '貸出中'
+      ? '貸出中'
+      : contractDone && vehicleInfo?.name_change_date
+        ? '名義変更'
+        : contractDone
+          ? '車両準備中'
+          : '申込受付';
+
+    // ⑥ 既存の表示機能を利用
+    showPage({
+      name: '',
+      driverId: link.driver_id,
+      stage: stage,
+
+      receipt: app.receipt_id,
+      receptionStatus:
+        app.reception_status || '確認中',
+      receivedAt:
+        app.received_at || '未設定',
+      deliveryWish:
+        app.delivery_wish || '未定',
+      startWish:
+        app.start_wish || '未定',
+      contract:
+        app.contract_status || '未設定',
+
+      // 台帳に入力されている項目だけ表示する
+      vehicle: vehicleInfo?.vehicle_number || '',
+      vehicleStatus: vehicleInfo?.vehicle_status || '',
+      nameChange: vehicleInfo?.name_change_date || '',
+      inspectionExpiry: vehicleInfo?.inspection_expiry_date || '',
+      returnScheduled: vehicleInfo?.return_scheduled_date || ''
+    });
+
+    // 受付・車両情報の表示を妨げず、本人の連絡先を追加で取得
+    await loadContactInfo(link.driver_id);
+
+  }catch(err){
+
+    if(currentCheck !== checkSequence) return;
+
+    // 個人情報・秘密キーはログに出さない
+    console.error(
+      'マイページ情報取得エラー',
+      err.code || err.name || 'unknown'
+    );
+
+    showError(
+      '申込情報を取得できませんでした。' +
+      '時間をおいて再度お試しください。'
+    );
+  }
+}
+
+/**
+ * ログアウト
+ * 既存動作を維持
+ */
+async function logout(){
+
+  if(!authClient) return;
+
+  ++checkSequence;
+  gfStopAutoCheck();
+
+  const {error} =
+    await authClient.auth.signOut();
+
+  if(error){
+
+    showError(
+      'ログアウトに失敗しました：' +
+      error.message
+    );
+
+    return;
+  }
+
+  showLogin();
+  setMessage('ログアウトしました');
+}
+
+/**
+ * Supabase初期化
+ */
+async function init(){
+
+  if(
+    !window.supabase ||
+    !SUPABASE_PUBLISHABLE_KEY.startsWith(
+      'sb_publishable_'
+    )
+  ){
+
+    showError(
+      'Supabaseの設定を確認してください'
+    );
+
+    return;
+  }
+
+  authClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth:{
+        detectSessionInUrl:true,
+        persistSession:true,
+        autoRefreshToken:true
+      }
+    }
+  );
+
+  const {data,error} =
+    await authClient.auth.getSession();
+
+  if(error){
+
+    showError(
+      '認証状態の確認に失敗しました：' +
+      error.message
+    );
+
+    return;
+  }
+
+  if(data.session){
+    await loadMyPage();
+  }else{
+    showLogin();
+  }
+
+  authClient.auth.onAuthStateChange(
+    (event,session) => {
+
+      if(event === 'SIGNED_IN' && session){
+
+        // Auth内部処理との競合を回避
+        setTimeout(() => loadMyPage(),0);
+      }
+
+      if(event === 'SIGNED_OUT'){
+        ++checkSequence;
+        showLogin();
+      }
+    }
+  );
+}
+
+init();
+</script>
+</body>
+</html>
