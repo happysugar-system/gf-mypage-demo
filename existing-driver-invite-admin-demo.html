@@ -28,7 +28,7 @@
 const URL="https://zwprphmfgobkektzsuti.supabase.co";
 const KEY="sb_publishable__wtlccECQwOVd3-LvRVFYQ_2dCUlPVR";
 const FN=URL+"/functions/v1/gf-demo-existing-driver-invite";
-const sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:"gf-demo-invite-admin"}});
+const sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
 const $=id=>document.getElementById(id);
 function status(s){$("status").textContent=s}
 function display(session){
@@ -36,16 +36,14 @@ function display(session){
  $("adminPanel").classList.toggle("hidden",!session);
  $("signedIn").textContent=session?"ログイン中："+(session.user?.email||""):"";
 }
-async function init(){
- try{const {data,error}=await sb.auth.getSession();if(error)throw error;display(data.session);status(data.session?"管理者ログイン済み。招待発行権限は発行時に検証します。":"デモの管理者アカウントでログインしてください。");}
- catch(e){status("認証確認エラー："+e.message)}
-}
+function init(){display(null);status("管理者アカウントでログインしてください。ログイン状態は画面を閉じると解除されます。");}
 $("login").onclick=async()=>{
  $("login").disabled=true;
  try{
   const email=$("email").value.trim(),password=$("password").value;
   if(!email||!password)throw Error("メールとパスワードを入力してください");
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  status("ログイン処理中…");
+  const {data,error}=await Promise.race([sb.auth.signInWithPassword({email,password}),new Promise((_,reject)=>setTimeout(()=>reject(Error("認証処理が20秒以上応答しません。通信環境を確認して再度お試しください。")),20000))]);
   if(error)throw error;
   $("password").value="";display(data.session);status("ログイン成功。");
  }catch(e){status("ログイン失敗："+e.message)}
