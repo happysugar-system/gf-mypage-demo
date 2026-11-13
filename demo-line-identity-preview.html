@@ -34,7 +34,7 @@ async function init(){
     const response=await fetch(DEMO_LINK_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'complete',challenge,line_id_token:idToken})});
     const result=await response.json();
     if(!response.ok||result.linked!==true)throw Error('本人確認を完了できませんでした');
-    status.textContent='デモ本人確認が完了しました。';const link=document.createElement('a');link.href='./demo-driver-mypage.html';link.textContent='デモマイページを開く';link.style.cssText='display:block;margin-top:14px;text-align:center;padding:14px;background:#176b55;color:white;border-radius:9px;font-weight:700;text-decoration:none';status.after(link);
+    status.textContent='デモ本人確認が完了しました。';const link=document.createElement('a');link.href='./demo-existing-mypage-integration.html';link.textContent='デモマイページを開く';link.style.cssText='display:block;margin-top:14px;text-align:center;padding:14px;background:#176b55;color:white;border-radius:9px;font-weight:700;text-decoration:none';status.after(link);
    }catch(e){status.textContent=e.message||'通信エラーが発生しました';button.disabled=false;}
   };
   status.textContent='LINEログインを確認しました。デモ本人確認を開始できます。';
