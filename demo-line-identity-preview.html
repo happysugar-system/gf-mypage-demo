@@ -20,7 +20,7 @@ async function init(){
   if(!window.liff)throw Error('LINE SDKを読み込めませんでした');
   await liff.init({liffId:DEMO_LIFF_ID});
   verifiedLiff=liff.isLoggedIn();
-  if(!verifiedLiff){status.textContent='LINEログインへ移動します…';liff.login({redirectUri:location.origin+location.pathname+((new URLSearchParams(location.search).get('line_first_test')==='1')?'?line_first_test=1':'')});return;}
+  if(!verifiedLiff){status.textContent='LINEログインへ移動します…';const allowed=new URLSearchParams();const current=new URLSearchParams(location.search);for(const key of ['line_first_test','register','mypage']){const v=current.get(key);if((key==='line_first_test'&&v==='1')||(key!=='line_first_test'&&v==='driver'))allowed.set(key,v);}liff.login({redirectUri:location.origin+location.pathname+(allowed.size?'?'+allowed.toString():'')});return;}
   
   if(!/^https:\/\/[^/]+\.supabase\.co\/functions\/v1\/gf-demo-line-mypage-link$/.test(DEMO_LINK_ENDPOINT)){throw Error('認証接続先が正しくありません');}
   const searchParams=new URLSearchParams(location.search);
