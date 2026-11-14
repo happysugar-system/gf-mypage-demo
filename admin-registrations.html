@@ -161,7 +161,7 @@ placeholder="example@example.com">
   </div>
 </div>
 
-<div class="card"><h2>LINE初回登録（新方式）</h2><p id="lineRequestMessage" class="muted">読み込み中…</p><div id="lineRequests"></div><p class="muted">新方式の承認操作は準備中です。従来のメール認証申請とは別に表示しています。</p></div>
+<div class="card"><h2>LINE初回登録（新方式）</h2><p id="lineRequestMessage" class="muted">読み込み中…</p><div id="lineRequests"></div><p class="muted">承認するとLINEアカウントとDriverIDを紐付けます。既存のマイページログインへの切り替えは別途必要です。</p></div>
 <div class="card">
   <h2>従来方式の承認待ち申請</h2>
   <p id="listMessage" class="muted" role="status"></p>
@@ -321,7 +321,7 @@ async function refreshLineRequests(seq=generation){
   const response=await fetch(SUPABASE_URL+'/functions/v1/gf-line-first-admin-review-stage',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'list'})});
   if(!response.ok)throw Error('申請を取得できません');const data=await response.json();if(seq!==generation)return;
   const requests=data.requests||[];message.textContent=requests.length?'LINE初回登録の承認待ち：'+requests.length+'件':'LINE初回登録の承認待ちはありません。';
-  for(const r of requests){const item=el('article',undefined,'item');item.append(el('strong',r.full_name||'氏名未設定'),el('p','DriverID：'+(r.claimed_driver_id||'未設定'),'muted'),el('p','電話番号：'+(r.phone_number||'未設定'),'muted'),el('p','申請日時：'+fmt(r.created_at),'muted'));list.append(item);}
+  for(const r of requests){const item=el('article',undefined,'item');item.append(el('strong',r.full_name||'氏名未設定'),el('p','DriverID：'+(r.claimed_driver_id||'未設定'),'muted'),el('p','電話番号：'+(r.phone_number||'未設定'),'muted'),el('p','申請日時：'+fmt(r.created_at),'muted'));const controls=el('div',undefined,'actions');const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.style.width='20px';const label=el('label',undefined,'confirmline');label.append(checkbox,el('span','氏名・電話番号・契約情報を確認し、申請者本人と判断しました。'));const approve=el('button','承認する'),reject=el('button','却下する','danger');approve.disabled=true;checkbox.addEventListener('change',()=>approve.disabled=!checkbox.checked);const review=async(decision)=>{if(decision==='approved'&&!checkbox.checked)return;if(!confirm((decision==='approved'?'承認':'却下')+'しますか？\\n'+r.full_name+' / '+r.claimed_driver_id))return;approve.disabled=true;reject.disabled=true;try{const {data:{session}}=await client.auth.getSession();if(!session)throw Error('管理者ログインが必要です');const res=await fetch(SUPABASE_URL+'/functions/v1/gf-line-first-admin-review-stage',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({action:'review',request_id:r.id,decision})});if(!res.ok)throw Error('承認処理ができませんでした。本人情報や既存のLINE紐付けを確認してください。');alert(decision==='approved'?'LINE紐付けを承認しました。':'申請を却下しました。');await refreshLineRequests();}catch(e){alert(e.message);approve.disabled=!checkbox.checked;reject.disabled=false;}};approve.onclick=()=>review('approved');reject.onclick=()=>review('rejected');controls.append(approve,reject);item.append(label,controls);list.append(item);}
  }catch(e){if(seq===generation)message.textContent='LINE申請を取得できませんでした。管理者認証を確認してください。';}
 }
 
