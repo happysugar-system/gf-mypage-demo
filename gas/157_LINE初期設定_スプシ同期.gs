@@ -41,7 +41,9 @@ function GF157_初期設定を同期() {
         const val=String(item[field]??'').trim();
         if(!val)continue;
         if(String(values[row-1][idx[column]]??'').trim()!==val){
-          sheet.getRange(row,idx[column]+1).setValue(val);
+          const cell=sheet.getRange(row,idx[column]+1);
+          if(column==='緊急連絡先電話番号') cell.setNumberFormat('@');
+          cell.setValue(val);
         }
       }
       SpreadsheetApp.flush();
