@@ -217,6 +217,23 @@ button:disabled{opacity:.5}
 </section>
 
 <section id="mypage" class="hidden">
+  <div class="card" id="mypageSetupIntro">
+    <h2>マイページの初期設定</h2>
+    <p style="line-height:1.8">マイページをご利用いただきありがとうございます。</p>
+    <p style="line-height:1.8">今後の車両に関するお手続きや各種ご案内を、よりスムーズにご利用いただけるよう、お客様情報の確認・設定をお願いいたします。</p>
+    <button type="button" onclick="openMypageSettings()">お客様情報を確認・設定する</button>
+    <button type="button" class="secondary" onclick="dismissMypageSettings()">あとで設定する</button>
+  </div>
+  <div class="card hidden" id="mypageSettingsPanel">
+    <h2>お客様情報の確認・設定</h2>
+    <p class="muted">こちらは画面確認用です。登録情報の取得・更新や書類の送信はまだできません。</p>
+    <div class="step"><span class="dot">1</span><div>基本情報・ご連絡先の確認</div></div>
+    <div class="step"><span class="dot">2</span><div>緊急連絡先・ご利用情報の設定</div></div>
+    <div class="step"><span class="dot">3</span><div>免許証・各種書類の確認</div></div>
+    <p class="muted">免許証の撮影ガイドは横長（カード比率約1.59:1）で実装予定です。</p>
+    <button type="button" class="secondary" onclick="closeMypageSettings()">マイページに戻る</button>
+  </div>
+
 
   <div class="card">
     <h1>車両のお申込み状況</h1>
@@ -310,6 +327,10 @@ const REDIRECT_URL =
   'https://happysugar-system.github.io/gf-mypage-demo/demo-existing-mypage-integration.html';
 
 const $ = id => document.getElementById(id);
+
+function openMypageSettings(){ $('mypageSetupIntro').classList.add('hidden');$('mypageSettingsPanel').classList.remove('hidden'); }
+function dismissMypageSettings(){ $('mypageSetupIntro').classList.add('hidden'); }
+function closeMypageSettings(){ $('mypageSettingsPanel').classList.add('hidden');$('mypageSetupIntro').classList.remove('hidden'); }
 
 let authClient = null;
 
