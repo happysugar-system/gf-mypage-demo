@@ -161,8 +161,9 @@ placeholder="example@example.com">
   </div>
 </div>
 
+<div class="card"><h2>LINE初回登録（新方式）</h2><p id="lineRequestMessage" class="muted">読み込み中…</p><div id="lineRequests"></div><p class="muted">新方式の承認操作は準備中です。従来のメール認証申請とは別に表示しています。</p></div>
 <div class="card">
-  <h2>承認待ちの申請</h2>
+  <h2>従来方式の承認待ち申請</h2>
   <p id="listMessage" class="muted" role="status"></p>
   <div id="requests"></div>
 </div>
@@ -303,6 +304,7 @@ async function load() {
 
     $('adminLabel').textContent = '管理者ログイン中';
     showOnly('dashboard');
+    await refreshLineRequests(seq);
     await refresh(seq);
 
   } catch(e) {
@@ -310,6 +312,17 @@ async function load() {
     console.error('admin load error',e);
     fail('管理者情報を取得できませんでした。');
   }
+}
+
+async function refreshLineRequests(seq=generation){
+ const message=$('lineRequestMessage'),list=$('lineRequests');list.replaceChildren();message.textContent='LINE登録申請を読み込み中…';
+ try{
+  const {data:{session}}=await client.auth.getSession();if(!session)throw Error('認証が必要です');
+  const response=await fetch(SUPABASE_URL+'/functions/v1/gf-line-first-admin-review-stage',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'list'})});
+  if(!response.ok)throw Error('申請を取得できません');const data=await response.json();if(seq!==generation)return;
+  const requests=data.requests||[];message.textContent=requests.length?'LINE初回登録の承認待ち：'+requests.length+'件':'LINE初回登録の承認待ちはありません。';
+  for(const r of requests){const item=el('article',undefined,'item');item.append(el('strong',r.full_name||'氏名未設定'),el('p','DriverID：'+(r.claimed_driver_id||'未設定'),'muted'),el('p','電話番号：'+(r.phone_number||'未設定'),'muted'),el('p','申請日時：'+fmt(r.created_at),'muted'));list.append(item);}
+ }catch(e){if(seq===generation)message.textContent='LINE申請を取得できませんでした。管理者認証を確認してください。';}
 }
 
 async function refresh(seq = generation) {
@@ -613,7 +626,7 @@ async function init() {
   $('otpCode').addEventListener('keydown',e=>{if(e.key==='Enter')verifyOtpCode();});
   $('retryDenied').addEventListener('click',load);
   $('retryError').addEventListener('click',load);
-  $('refresh').addEventListener('click',()=>refresh());
+  $('refresh').addEventListener('click',()=>{refreshLineRequests();refresh();});
 
   document.querySelectorAll('.logout')
     .forEach(b=>b.addEventListener('click',logout));
