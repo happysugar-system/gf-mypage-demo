@@ -1,6 +1,6 @@
 /** GOLD FIRST / 157_LINE初期設定_スプシ同期.gs
  * 既存GASプロジェクトに追加。既存130〜156は変更しない。
- * Script Properties: GF_CONTACT_SYNC_TOKEN (既存の連絡先同期と同じ秘密トークン)
+ * Script Properties: GF_LINE_PROFILE_SYNC_TOKEN (157専用の秘密トークン（既存の連絡先同期と別）)
  * 本番スプレッドシート: GOLD FIRST 車両・ドライバー管理
  * 手動で GF157_初期設定を同期() をテストし、既存の定期実行関数に1行追加する。
  */
@@ -8,8 +8,8 @@ function GF157_初期設定を同期() {
   const lock=LockService.getScriptLock();
   if(!lock.tryLock(1000)) return {skipped:'locked'};
   try {
-    const token=PropertiesService.getScriptProperties().getProperty('GF_CONTACT_SYNC_TOKEN');
-    if(!token || token.length<32) throw new Error('GF_CONTACT_SYNC_TOKEN 未設定');
+    const token=PropertiesService.getScriptProperties().getProperty('GF_LINE_PROFILE_SYNC_TOKEN');
+    if(!token || token.length<32) throw new Error('GF_LINE_PROFILE_SYNC_TOKEN 未設定');
     const root='https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/';
     const queue=UrlFetchApp.fetch(root+'gf-line-profile-sync-queue',{
       method:'get',headers:{'x-gf-sync-token':token},muteHttpExceptions:true
@@ -57,4 +57,36 @@ function GF157_初期設定を同期() {
     console.log(JSON.stringify({updated,missing,queued:items.length}));
     return {updated,missing,queued:items.length};
   }finally{lock.releaseLock();}
+}
+
+/**
+ * 初回だけ実行する。秘密トークンを生成してスクリプトプロパティへ保存。
+ * 既存の値がある場合は上書きしない。
+ * トークンはGAS画面のダイアログに一度だけ表示し、ログには出さない。
+ * ダイアログの値をSupabaseのEdge Function Secretsへ登録する。
+ */
+function GF157_同期トークン初期設定() {
+  const key='GF_LINE_PROFILE_SYNC_TOKEN';
+  const props=PropertiesService.getScriptProperties();
+  if(props.getProperty(key)){
+    SpreadsheetApp.getUi().alert(key+' は設定済みです。再発行・上書きはしていません。');
+    return;
+  }
+  const bytes=[];
+  for(let i=0;i<8;i++){
+    const uuid=Utilities.getUuid().replace(/-/g,'');
+    bytes.push(uuid);
+  }
+  const token=bytes.join('');
+  props.setProperty(key,token);
+  const html=HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;padding:16px;word-break:break-all">'+
+    '<h3>GF157 専用トークン（初回のみ表示）</h3>'+
+    '<p>下の値をコピーして、Supabaseの Edge Function Secrets に登録してください。</p>'+
+    '<textarea readonly style="width:100%;height:110px">'+token+'</textarea>'+
+    '<p>名前：<b>'+key+'</b></p>'+
+    '<p>このウィンドウを閉じると再表示できません。ログには出力しません。</p>'+
+    '</div>'
+  ).setWidth(580).setHeight(340);
+  SpreadsheetApp.getUi().showModalDialog(html,'GF157 初期設定');
 }
