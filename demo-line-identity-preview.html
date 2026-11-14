@@ -49,6 +49,7 @@ async function init(){
 
  const progressPanel=document.getElementById('lineDriverProgressPanel');
  document.getElementById('lineDriverProgressOpen').onclick=async()=>{
+  if(!progressPanel.hidden){progressPanel.hidden=true;return;}
   progressPanel.hidden=false;
   const msg=document.getElementById('lineDriverProgressMessage'),out=document.getElementById('lineDriverProgressContent');
   out.replaceChildren();msg.textContent='申込情報を取得しています…';
