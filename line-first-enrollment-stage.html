@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>GOLD FIRST｜既存ドライバーLINE初回連携（検証）</title>
+<style>body{margin:0;background:#f4f6f6;color:#19342d;font:16px system-ui,sans-serif}main{max-width:480px;margin:28px auto;padding:24px;background:white;border-radius:16px;box-shadow:0 4px 20px #0001}h1{font-size:22px}p{line-height:1.75}label{display:block;margin:18px 0 8px;font-weight:600}input{box-sizing:border-box;width:100%;padding:14px;font-size:16px;border:1px solid #b8c9c2;border-radius:9px}button{width:100%;padding:15px;border:0;border-radius:9px;background:#176b54;color:white;font-size:16px;font-weight:bold;margin-top:18px}button:disabled{opacity:.5}#status{white-space:pre-wrap}small{color:#687873}</style></head>
+<body><main><h1>GOLD FIRST｜既存ドライバー初回LINE連携</h1><p>管理者から直接受け取った招待コードを入力し、ご本人のLINEアカウントと連携してください。</p>
+<p><small>検証用画面です。既存のマイページログイン方式はまだ切り替わりません。招待コードは第三者に共有しないでください。</small></p>
+<label for="invite">招待コード</label><input id="invite" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="43" placeholder="管理者から受け取ったコード">
+<button id="connect" disabled>LINEで本人確認して連携</button><p id="status" role="status">LINE認証を準備しています…</p></main>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+'use strict';
+const LIFF_ID='2012019621-Gu0mOfuK';
+const ENDPOINT='https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-first-enroll-stage';
+const button=document.getElementById('connect'),status=document.getElementById('status'),input=document.getElementById('invite');
+const query=new URLSearchParams(location.search);
+const state=new URLSearchParams((query.get('liff.state')||'').replace(/^\?/,''));
+const candidate=query.get('invite')||state.get('invite')||'';
+if(/^[A-Za-z0-9_-]{43}$/.test(candidate))input.value=candidate;
+if(query.has('invite')||query.has('liff.state'))history.replaceState(null,'',location.pathname);
+async function init(){
+ try{
+  if(!window.liff)throw Error('LINE SDKを読み込めませんでした');
+  await liff.init({liffId:LIFF_ID});
+  if(!liff.isLoggedIn()){status.textContent='LINEログイン画面へ移動します…';liff.login({redirectUri:location.href});return;}
+  if(!liff.getIDToken())throw Error('LINE認証情報を取得できません。LINEから開き直してください');
+  button.disabled=false;status.textContent='LINE本人確認の準備ができました。';
+ }catch(e){status.textContent=e.message||'LINE認証の準備に失敗しました';}
+}
+button.addEventListener('click',async()=>{
+ const invite=input.value.trim();
+ if(!/^[A-Za-z0-9_-]{43}$/.test(invite)){status.textContent='招待コードの形式を確認してください';return;}
+ button.disabled=true;status.textContent='本人確認と連携を実行しています…';
+ try{
+  const token=liff.getIDToken();if(!token)throw Error('LINE認証情報が取得できません');
+  const response=await fetch(ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'redeem',invite_code:invite,line_id_token:token})});
+  const data=await response.json();
+  if(!response.ok||data.linked!==true)throw Error(data.error||'連携できませんでした');
+  input.value='';status.textContent='LINEの本人確認と初回連携が完了しました。現在、マイページへのLINEログインは移行準備中です。';
+  button.textContent='連携完了';
+ }catch(e){status.textContent=e.message||'通信エラーが発生しました';button.disabled=false;}
+});
+init();
+</script></body></html>
