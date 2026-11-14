@@ -9,7 +9,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 'use strict';
-const LIFF_ID='2012019621-Gu0mOfuK';
+const LIFF_ID='2012058414-9wPp65Lt';
 const ENDPOINT='https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-first-enroll-stage';
 const button=document.getElementById('connect'),status=document.getElementById('status'),input=document.getElementById('invite');
 const query=new URLSearchParams(location.search);
@@ -21,7 +21,7 @@ async function init(){
  try{
   if(!window.liff)throw Error('LINE SDKを読み込めませんでした');
   await liff.init({liffId:LIFF_ID});
-  if(!liff.isLoggedIn()){status.textContent='LINEログイン画面へ移動します…';liff.login({redirectUri:location.href});return;}
+  if(!liff.isLoggedIn()){status.textContent='LINEログイン画面へ移動します…';liff.login({redirectUri:location.origin+location.pathname});return;}
   if(!liff.getIDToken())throw Error('LINE認証情報を取得できません。LINEから開き直してください');
   button.disabled=false;status.textContent='LINE本人確認の準備ができました。';
  }catch(e){status.textContent=e.message||'LINE認証の準備に失敗しました';}
