@@ -60,33 +60,19 @@ function GF157_初期設定を同期() {
 }
 
 /**
- * 初回だけ実行する。秘密トークンを生成してスクリプトプロパティへ保存。
- * 既存の値がある場合は上書きしない。
- * トークンはGAS画面のダイアログに一度だけ表示し、ログには出さない。
- * ダイアログの値をSupabaseのEdge Function Secretsへ登録する。
+ * Supabase Edge Function Secretsに登録したトークンをGASへ設定する。
+ * 1. Supabaseで GF_LINE_PROFILE_SYNC_TOKEN を作成（64文字以上のランダム文字列）
+ * 2. 下の PASTE_TOKEN_HERE にその値を一時的に貼り付ける
+ * 3. GF157_同期トークン初期設定() を実行する
+ * 4. 成功後、コード中の値を PASTE_TOKEN_HERE に戻して保存する
+ * ※トークンをログやチャットに表示しない。既存トークンを上書きしない。
  */
 function GF157_同期トークン初期設定() {
-  const key='GF_LINE_PROFILE_SYNC_TOKEN';
+  const token='PASTE_TOKEN_HERE';
+  if(token==='PASTE_TOKEN_HERE'||token.length<32)throw new Error('Supabaseで発行したトークンをコードに一時貼り付けしてください');
   const props=PropertiesService.getScriptProperties();
-  if(props.getProperty(key)){
-    SpreadsheetApp.getUi().alert(key+' は設定済みです。再発行・上書きはしていません。');
-    return;
-  }
-  const bytes=[];
-  for(let i=0;i<8;i++){
-    const uuid=Utilities.getUuid().replace(/-/g,'');
-    bytes.push(uuid);
-  }
-  const token=bytes.join('');
+  const key='GF_LINE_PROFILE_SYNC_TOKEN';
+  if(props.getProperty(key))throw new Error('すでに設定済み。上書きしません');
   props.setProperty(key,token);
-  const html=HtmlService.createHtmlOutput(
-    '<div style="font-family:sans-serif;padding:16px;word-break:break-all">'+
-    '<h3>GF157 専用トークン（初回のみ表示）</h3>'+
-    '<p>下の値をコピーして、Supabaseの Edge Function Secrets に登録してください。</p>'+
-    '<textarea readonly style="width:100%;height:110px">'+token+'</textarea>'+
-    '<p>名前：<b>'+key+'</b></p>'+
-    '<p>このウィンドウを閉じると再表示できません。ログには出力しません。</p>'+
-    '</div>'
-  ).setWidth(580).setHeight(340);
-  SpreadsheetApp.getUi().showModalDialog(html,'GF157 初期設定');
+  console.log('GF157 専用同期トークンを保存しました（値は非表示）');
 }
