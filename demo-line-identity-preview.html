@@ -89,7 +89,42 @@ async function init(){
    }
   }catch(e){msg.textContent=e.message||'取得できませんでした';}
  };
- const showProfile=async()=>{onboarding.hidden=true;home.hidden=true;profile.hidden=false;heading.hidden=true;message.hidden=true;refresh.hidden=true;status.hidden=true;profileMessage.textContent='登録情報を読み込み中…';try{const value=await profileCall('read');existing.replaceChildren();for(const [label,v] of [['氏名',value.driver.full_name],['電話番号',value.driver.phone_number],['メールアドレス',value.driver.email]]){const p=document.createElement('p');p.textContent=label+'：'+(v||'未登録');existing.append(p);}document.getElementById('lineDriverPhone').value=value.driver.phone_number||'';document.getElementById('lineDriverEmail').value=value.driver.email||'';document.getElementById('lineDriverReferral').value=value.settings.referral_source||'';document.getElementById('lineDriverCompany').value=value.settings.company_name||'';document.getElementById('lineDriverEmergencyName').value=value.settings.emergency_contact_name||'';document.getElementById('lineDriverEmergencyPhone').value=value.settings.emergency_contact_phone||'';profileMessage.textContent='';}catch(e){profileMessage.textContent=e.message;}};
+ const showProfile=async()=>{
+  onboarding.hidden=true;home.hidden=true;profile.hidden=false;heading.hidden=true;message.hidden=true;refresh.hidden=true;status.hidden=true;
+  profileMessage.textContent='登録情報を読み込み中…';
+  const form=document.getElementById('lineDriverProfileForm');
+  const save=document.getElementById('lineDriverProfileSave');
+  form.hidden=true;save.disabled=false;
+  try{
+   const value=await profileCall('read');
+   existing.replaceChildren();
+   const driver=value.driver||{},settings=value.settings||{};
+   const fields=[
+    ['電話番号','lineDriverPhone',driver.phone_number],
+    ['メールアドレス','lineDriverEmail',driver.email],
+    ['紹介元','lineDriverReferral',settings.referral_source],
+    ['所属会社名','lineDriverCompany',settings.company_name],
+    ['緊急連絡先のお名前','lineDriverEmergencyName',settings.emergency_contact_name],
+    ['緊急連絡先の電話番号','lineDriverEmergencyPhone',settings.emergency_contact_phone]
+   ];
+   const name=document.createElement('p');name.textContent='氏名：'+(driver.full_name||'');existing.append(name);
+   let missing=0;
+   for(const [label,id,raw] of fields){
+    const input=document.getElementById(id);
+    const v=String(raw||'').trim();
+    input.value=v;
+    const wrapper=input.closest('label');
+    if(wrapper)wrapper.hidden=!!v;
+    if(v){const p=document.createElement('p');p.textContent=label+'：'+v;existing.append(p);}
+    else missing++;
+   }
+   const hint=document.createElement('p');hint.className='muted';
+   hint.textContent='登録済みの情報は表示のみです。変更をご希望の場合は管理者へご連絡ください。';
+   existing.append(hint);
+   form.hidden=missing===0;
+   profileMessage.textContent=missing===0?'現在登録されている情報をご確認いただけます。':'下記の項目をご登録ください。';
+  }catch(e){profileMessage.textContent=e.message||'取得できませんでした';}
+ };
  document.getElementById('lineDriverSetup').onclick=showProfile;
  document.getElementById('lineDriverEditProfile').onclick=showProfile;
  document.getElementById('lineDriverProfileBack').onclick=showHome;
