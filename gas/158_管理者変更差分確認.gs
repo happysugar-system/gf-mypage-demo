@@ -32,7 +32,8 @@ function GF158_管理者差分プレビュー(){
   const body=JSON.parse(res.getContentText());
   if(body.status!=='ok'||body.page!==page||!Array.isArray(body.records)||body.records.length>200||typeof body.has_more!=='boolean')throw Error('API応答不正');
   for(const record of body.records){
-   if(!/^D[0-9]{6}$/.test(String(record.driver_id||''))||seenRemote.has(record.driver_id))throw Error('Supabase DriverID不正・重複');
+   if(!/^D[0-9]{6,7}$/.test(String(record.driver_id||'')))throw Error('Supabase DriverID形式不正: '+String(record.driver_id||''));
+   if(seenRemote.has(record.driver_id))throw Error('Supabase DriverID重複: '+record.driver_id);
    seenRemote.add(record.driver_id);records.push(record);
   }
   if(!body.has_more){complete=true;break;}
