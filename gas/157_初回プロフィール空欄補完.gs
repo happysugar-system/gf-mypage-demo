@@ -15,7 +15,7 @@ function GF157_本番同期(){
  return GF157_同期_(enabled);
 }
 function GF157_同期_(write){
- const result={mode:write?'WRITE':'READ_ONLY',checked:0,eligible:0,updated:0,conflict:0};
+ const result={mode:write?'WRITE':'READ_ONLY',checked:0,eligible:0,updated:0,acknowledged:0,protected:0,planned:0,conflict:0};
  const lock=LockService.getScriptLock();
  if(!lock.tryLock(5000))throw Error('他のGAS処理が実行中です');
  try{
@@ -48,16 +48,24 @@ function GF157_同期_(write){
      if(key==='phone_number'||key==='emergency_contact_phone'){if(!/^0[0-9]{9,10}$/.test(value))throw Error('電話番号形式不正');}
      if(key==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))throw Error('メール形式不正');
      const cell=sh.getRange(row,cols[colName]),existing=String(cell.getDisplayValue()||'').trim();
-     if(existing){if(existing!==(key==='email'?value.toLowerCase():value))console.log('GF157 既存値保護: '+id+' '+colName);continue;}
+     if(existing){if(existing!==(key==='email'?value.toLowerCase():value)){result.protected++;console.log('GF157 既存値保護: '+id+' '+colName);}continue;}
      changes.push({cell,value});
     }
     result.eligible++;
-    if(!write)continue;
+    result.planned+=changes.length;
+    if(!write){console.log('GF157 プレビュー '+id+' 空欄補完予定 '+changes.length+'件');continue;}
+    // 同じDriverIDであることと、対象セルがまだ空欄であることを直前に再確認。
+    if(String(sh.getRange(row,cols.DriverID).getDisplayValue()).trim()!==id)throw Error('書込直前DriverID不一致');
+    for(const change of changes){
+     if(String(change.cell.getDisplayValue()||'').trim())throw Error('書込直前に値が入力されました');
+    }
     for(const change of changes){change.cell.setNumberFormat('@');change.cell.setValue(change.value);}
     SpreadsheetApp.flush();
+    for(const change of changes){if(String(change.cell.getDisplayValue()).trim()!==change.value)throw Error('書込検証失敗');}
+    result.updated+=changes.length;
     const ack=GF157_API_('post',{driver_id:id,updated_at:item.updated_at,result:'applied'});
     if(!['recorded','stale_or_already_recorded'].includes(ack.status))throw Error('完了通知失敗');
-    result.updated++;
+    result.acknowledged++;
    }catch(e){result.conflict++;console.error('GF157 '+String(e.message||e));break;}
   }
   console.log(JSON.stringify(result));return result;
