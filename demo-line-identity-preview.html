@@ -114,7 +114,7 @@ async function init(){
     const v=String(raw||'').trim();
     input.value=v;
     const wrapper=input.closest('label');
-    if(wrapper)wrapper.hidden=!!v;
+    if(wrapper){wrapper.hidden=!!v;wrapper.style.display=v?'none':'block';}
     if(v){const p=document.createElement('p');p.textContent=label+'：'+v;existing.append(p);}
     else missing++;
    }
