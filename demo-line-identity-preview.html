@@ -95,7 +95,7 @@ async function init(){
  document.getElementById('lineDriverProfileBack').onclick=showHome;
  document.getElementById('lineDriverProfileForm').onsubmit=async e=>{e.preventDefault();const save=document.getElementById('lineDriverProfileSave');save.disabled=true;profileMessage.textContent='保存中…';try{await profileCall('save',{preferred_contact_method:'line',phone_number:document.getElementById('lineDriverPhone').value,email:document.getElementById('lineDriverEmail').value,referral_source:document.getElementById('lineDriverReferral').value,company_name:document.getElementById('lineDriverCompany').value,emergency_contact_name:document.getElementById('lineDriverEmergencyName').value,emergency_contact_phone:document.getElementById('lineDriverEmergencyPhone').value});profileMessage.textContent='設定を保存しました。';showHome();}catch(err){profileMessage.textContent=err.message;}finally{save.disabled=false;}};
  
- showHome();}
+ try{const setup=await profileCall('read');if(!setup.settings.setup_completed||!setup.driver.phone_number){await showProfile();}else{showHome();}}catch(error){profileMessage.textContent=error.message;await showProfile();}}
    }catch(e){message.textContent=e.message||'確認に失敗しました';}finally{refresh.disabled=false;}};
    refresh.onclick=check;await check();return;
   }
