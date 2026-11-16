@@ -1,15 +1,14 @@
 /**
  * GOLD FIRST / 158_管理者変更差分確認.gs
- * スプシ正本 → Supabase 反映前の安全な差分確認。
- * 読取専用。既存トリガー・157・156・130〜134は変更しない。
- * 対象は初回プロフィール関連の6項目。DriverIDで照合する。
- * 本番書込は実装していない（API・競合対策を検証後に追加）。
+ * スプシ正本とSupabase全ドライバーの差分を読み取り専用で確認する。
+ * 初回の差分は既存データの不一致であり「管理者による変更」とは断定しない。
+ * 既存の130〜134・156・157およびトリガーは変更しない。
  */
 const GF158_CONFIG={
  SPREADSHEET_ID:'17IzIUJeYQw3nO8GZsUSCgLfHVECNINZNkQdg38GW57o',
  SHEET_NAME:'ドライバーマスター',
- API:'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-profile-sync-queue',
- MAX_REQUESTS:20
+ API:'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-admin-driver-profile-snapshot',
+ MAX_PAGES:10
 };
 function GF158_管理者差分プレビュー(){
  const sh=SpreadsheetApp.openById(GF158_CONFIG.SPREADSHEET_ID).getSheetByName(GF158_CONFIG.SHEET_NAME);
@@ -25,25 +24,48 @@ function GF158_管理者差分プレビュー(){
  const props=PropertiesService.getScriptProperties();
  const token=props.getProperty('GF_CONTACT_READ_API_TOKEN')||props.getProperty('GF190_SHARED_SECRET');
  if(!token||token.length<32)throw Error('同期トークン未設定');
- const res=UrlFetchApp.fetch(GF158_CONFIG.API,{method:'get',headers:{'x-gf-sync-token':token},muteHttpExceptions:true});
- if(res.getResponseCode()!==200)throw Error('API HTTP '+res.getResponseCode());
- const body=JSON.parse(res.getContentText());
- if(body.status!=='ok'||!Array.isArray(body.requests)||body.requests.length>GF158_CONFIG.MAX_REQUESTS)throw Error('API応答不正');
+ const records=[],seenRemote=new Set();
+ let complete=false;
+ for(let page=0;page<GF158_CONFIG.MAX_PAGES;page++){
+  const res=UrlFetchApp.fetch(GF158_CONFIG.API+'?page='+page,{method:'get',headers:{'x-gf-sync-token':token},muteHttpExceptions:true});
+  if(res.getResponseCode()!==200)throw Error('API HTTP '+res.getResponseCode());
+  const body=JSON.parse(res.getContentText());
+  if(body.status!=='ok'||body.page!==page||!Array.isArray(body.records)||body.records.length>200||typeof body.has_more!=='boolean')throw Error('API応答不正');
+  for(const record of body.records){
+   if(!/^D[0-9]{6}$/.test(String(record.driver_id||''))||seenRemote.has(record.driver_id))throw Error('Supabase DriverID不正・重複');
+   seenRemote.add(record.driver_id);records.push(record);
+  }
+  if(!body.has_more){complete=true;break;}
+ }
+ if(!complete)throw Error('ページ上限超過: 全件取得できません');
  const last=sh.getLastRow();
  const rows=last>1?sh.getRange(2,1,last-1,sh.getLastColumn()).getDisplayValues():[];
  const index=new Map();
- rows.forEach((r,i)=>{const id=String(r[cols.DriverID-1]||'').trim();if(id){if(index.has(id))index.set(id,-1);else index.set(id,i);}});
- const differences=[];
- for(const item of body.requests){
-  const i=index.get(String(item.driver_id||''));
-  if(i===undefined||i===-1){differences.push({driver_id:item.driver_id,error:'DriverID不明または重複'});continue;}
+ rows.forEach((r,i)=>{
+  const id=String(r[cols.DriverID-1]||'').trim();
+  if(id){if(index.has(id))index.set(id,-1);else index.set(id,i);}
+ });
+ const differences=[],issues=[];
+ for(const item of records){
+  const i=index.get(item.driver_id);
+  if(i===undefined||i===-1){issues.push({driver_id:item.driver_id,reason:'スプシ側DriverID不明または重複'});continue;}
   for(const [field,col] of Object.entries(mapping)){
-   const sheet=String(rows[i][cols[col]-1]||'').trim();
+   // プロフィール未登録者については設定4項目の差分を判定しない。
+   if(!item.profile_exists&&!['phone_number','email'].includes(field))continue;
+   const sheet=String(rows[i][cols[col]-1]??'').trim();
    const remote=String(item[field]??'').trim();
    if(sheet!==remote)differences.push({driver_id:item.driver_id,column:col,sheet_value:sheet,supabase_value:remote});
   }
  }
- console.log('GF158 差分確認（未同期キュー対象のみ） '+JSON.stringify({checked:body.requests.length,differences:differences.length,write:false}));
- differences.forEach(d=>console.log(JSON.stringify(d)));
- return {checked:body.requests.length,differences,write:false,note:'未同期キューのみ。全ドライバーの差分検査や書込は未対応'};
+ for(const [id,i] of index){
+  if(i===-1)issues.push({driver_id:id,reason:'スプシ側DriverID重複'});
+  else if(!seenRemote.has(id))issues.push({driver_id:id,reason:'Supabase側DriverID未登録'});
+ }
+ const summary={checked:records.length,sheet_rows:rows.length,differences:differences.length,issues:issues.length,write:false};
+ console.log('GF158 全ドライバー差分プレビュー '+JSON.stringify(summary));
+ // 個人情報をログに出さない。必要な差分の列名・IDのみ表示。
+ differences.slice(0,30).forEach(d=>console.log('GF158 差分 '+d.driver_id+' '+d.column));
+ issues.slice(0,30).forEach(d=>console.log('GF158 要確認 '+d.driver_id+' '+d.reason));
+ if(differences.length>30||issues.length>30)console.log('GF158 ログ表示は各30件まで');
+ return {summary,differences,issues,note:'読取専用。初回差分は変更履歴ではなく現時点の不一致。自動書込は未実装。'};
 }
