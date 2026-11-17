@@ -59,7 +59,22 @@ async function init(){
    const token=liff.getIDToken();if(!token)throw Error('LINE認証情報がありません');
    const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
    const result=await response.json();if(!response.ok)throw Error(result.error||'申込情報を取得できません');
-   const a=result.application;if(!a){msg.textContent='現在、申込情報が登録されていません。';return;}
+   const a=result.application;
+   if(!a){
+    const vehicles=Array.isArray(result.vehicles)?result.vehicles:[];
+    if(!vehicles.length){msg.textContent='申込履歴と現在の利用車両情報は登録されていません。';return;}
+    msg.textContent='過去の申込履歴はありません。現在の車両台帳の情報を表示しています。';
+    for(const v of vehicles){
+     const box=document.createElement('div');box.style.cssText='background:white;border-radius:10px;padding:14px;margin:12px 0';
+     const title=document.createElement('h4');title.textContent=v.vehicle_number||'車番未登録';box.append(title);
+     for(const [label,key] of [['車両状況','区分/ステータス'],['車種','車種'],['名義変更日','名義変更日'],['引渡日','引渡し'],['車検満了日','車検満了日']]){
+      if(!v[key])continue;
+      const row=document.createElement('p');row.style.cssText='font-size:14px;margin:8px 0';row.textContent=label+'：'+v[key];box.append(row);
+     }
+     out.append(box);
+    }
+    return;
+   }
    msg.textContent='';
    const status=document.createElement('div');status.style.cssText='background:#e9f3ee;color:#176b55;border-radius:10px;padding:14px;font-weight:700;margin-bottom:12px';status.textContent='現在：'+(a.stage||'確認中');out.append(status);
    const steps=['申込受付','契約締結','車両準備中','名義変更','引渡可能'],current=steps.indexOf(a.stage);
