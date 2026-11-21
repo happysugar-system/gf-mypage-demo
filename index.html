@@ -94,6 +94,7 @@ button:disabled{opacity:.5}
   color:#5b6b67;
   flex:none;
 }
+.step-date{margin-left:auto;color:#61756f;font-size:12px;white-space:nowrap}
 .step.current .dot{
   background:#166b56;
   color:white;
@@ -533,7 +534,7 @@ function showPage(d){
     (d.driverId || '');
 
   $('status').textContent =
-    '現在：' + (d.stage || '確認中');
+    '現在：' + (d.vehicleStage || d.stage || '確認中');
 
   [
     'receipt',
@@ -553,15 +554,27 @@ function showPage(d){
 
   $('vehicle').textContent = d.vehicle || '';
 
-  const steps = [
+  // 車両進捗は社内管理区分・貸出状況とは別に管理する。
+  // 新しい進捗データが届くまでは既存の申込進捗を維持する。
+  const vehicleSteps = [
+    '車両準備中',
+    '車両手配済み',
+    '名義変更前',
+    '名義変更中',
+    '名義変更済み'
+  ];
+  const legacySteps = [
     '申込受付',
     '契約締結',
     '車両準備中',
     '名義変更',
     '引渡可能'
   ];
-
-  const current = steps.indexOf(d.stage);
+  const vehicleStage = vehicleSteps.includes(d.vehicleStage) ? d.vehicleStage : '';
+  const steps = vehicleStage ? vehicleSteps : legacySteps;
+  const current = steps.indexOf(vehicleStage || d.stage);
+  const progressDates = vehicleStage && d.progressDates && typeof d.progressDates === 'object'
+    ? d.progressDates : {};
 
   $('steps').replaceChildren();
 
@@ -584,6 +597,18 @@ function showPage(d){
     title.textContent = step;
 
     el.append(dot,title);
+    if(vehicleStage){
+      const dateValue = progressDates[step];
+      if(dateValue && i <= current){
+        const date = document.createElement('span');
+        date.className = 'step-date';
+        // UTC or local ISO timestamps are formatted for Japanese users.
+        const parsed = new Date(String(dateValue));
+        date.textContent = Number.isNaN(parsed.getTime())
+          ? '' : parsed.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tokyo'});
+        el.append(date);
+      }
+    }
     $('steps').append(el);
   });
 
