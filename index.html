@@ -772,6 +772,16 @@ async function loadMyPage(options={}){
       throw new Error('DriverIDの照合に失敗しました');
     }
 
+    // 本人用RLSで保護された進捗専用表を読む。社内用管理区分は読まない。
+    const {data:progressRows,error:progressError} = await authClient
+      .from('gf_driver_vehicle_progress')
+      .select('vehicle_id,stage,stage_dates,delivery_available_date,delivery_confirmed_date')
+      .eq('driver_id',link.driver_id)
+      .limit(1);
+    if(currentCheck !== checkSequence) return;
+    if(progressError) throw progressError;
+    const vehicleProgress = progressRows?.[0] || null;
+
     // ④ 契約状況に応じて進捗を判定
     // ③車両準備中以降は車両台帳との連携後に対応
     const contractStatus = String(app.contract_status ?? '').trim();
@@ -792,6 +802,10 @@ const stage = completedStatuses.includes(contractStatus)
       driverId: link.driver_id,
       stage: stage,
       contractUpdatedAt: app.contract_updated_at || '',
+      vehicleStage: completedStatuses.includes(contractStatus) ? (vehicleProgress?.stage || '') : '',
+      progressDates: vehicleProgress?.stage_dates || {},
+      deliveryAvailableDate: vehicleProgress?.delivery_available_date || '',
+      deliveryConfirmedDate: vehicleProgress?.delivery_confirmed_date || '',
 
       receipt: app.receipt_id,
       receptionStatus:
@@ -808,7 +822,7 @@ const stage = completedStatuses.includes(contractStatus)
       // 未確定の車両情報は表示しない
       vehicle: '',
       nameChange: '',
-      handover: ''
+      handover: vehicleProgress?.delivery_confirmed_date || vehicleProgress?.delivery_available_date || ''
     });
 
   }catch(err){
