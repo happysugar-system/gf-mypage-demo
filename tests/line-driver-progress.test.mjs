@@ -44,3 +44,25 @@ test('既存申込と車両台帳は読み取りのみで、既存情報も表�
   assert.ok(!api.includes('.delete('));
   assert.ok(!api.includes('.update('));
 });
+
+test('納車可能日・確定日は日本語表示で、未定の場合も崩れない',()=>{
+ const start=html.indexOf('const rawDate=a.vehicle_progress?.[key]');
+ const end=html.indexOf("val.style.cssText=",start);
+ assert.ok(start>0&&end>start);
+ const expression=html.slice(start,end);
+ const render=new Function('a','key','val',expression);
+ for(const [raw,want] of [['2026-12-01','2026年12月1日'],['2026-02-09','2026年2月9日'],['','未定']]){
+  const val={textContent:''};
+  render({vehicle_progress:{delivery_available_date:raw}},'delivery_available_date',val);
+  assert.equal(val.textContent,want);
+ }
+});
+test('LINE版APIとスタッフ画面は納車日2種類を同じ保存キーでやり取りする',()=>{
+ for(const field of ['delivery_available_date','delivery_confirmed_date']){
+  assert.ok(api.includes(field),'LINE API missing '+field);
+  assert.ok(html.includes(field),'MyPage missing '+field);
+ }
+ assert.match(api,/\.eq\('driver_id',driverId\)\.limit\(2\)/);
+ assert.match(api,/items\.some\(v=>v\.vehicle_id===rows\[0\]\.vehicle_id\)/);
+ assert.match(api,/let progress=null;/);
+});
