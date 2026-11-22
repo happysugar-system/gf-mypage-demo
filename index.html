@@ -785,8 +785,9 @@ async function loadMyPage(options={}){
       .eq('driver_id',link.driver_id)
       .limit(1);
     if(currentCheck !== checkSequence) return;
-    if(progressError) throw progressError;
-    const vehicleProgress = progressRows?.[0] || null;
+    // 新しい進捗APIが一時的に利用できない場合も、既存申込情報は表示する。
+    if(progressError) console.warn('進捗情報の取得をスキップ', progressError.code || 'unknown');
+    const vehicleProgress = progressError ? null : (progressRows?.[0] || null);
 
     // ④ 契約状況に応じて進捗を判定
     // ③車両準備中以降は車両台帳との連携後に対応
