@@ -1,0 +1,27 @@
+name: LINE driver MyPage regression
+on:
+  pull_request:
+    paths:
+      - 'demo-line-identity-preview.html'
+      - 'supabase/functions/gf-line-driver-vehicles-stage/index.ts'
+      - 'tests/line-driver-progress.test.mjs'
+      - '.github/workflows/line-driver-progress.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'demo-line-identity-preview.html'
+      - 'supabase/functions/gf-line-driver-vehicles-stage/index.ts'
+      - 'tests/line-driver-progress.test.mjs'
+      - '.github/workflows/line-driver-progress.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/line-driver-progress.test.mjs
