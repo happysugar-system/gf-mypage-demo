@@ -269,8 +269,13 @@ button:disabled{opacity:.5}
     </div>
 
     <div class="row">
-      <span>引渡可能日</span>
-      <strong id="handover"></strong>
+      <span>納車可能日</span>
+      <strong id="deliveryAvailableDate"></strong>
+    </div>
+
+    <div class="row">
+      <span>納車確定日</span>
+      <strong id="deliveryConfirmedDate"></strong>
     </div>
 
     <button class="secondary" onclick="loadMyPage()">
@@ -544,7 +549,8 @@ function showPage(d){
     'startWish',
     'contract',
     'nameChange',
-    'handover'
+    'deliveryAvailableDate',
+    'deliveryConfirmedDate'
   ].forEach(k => {
     $(k).textContent = d[k] || '未定';
   });
@@ -822,7 +828,8 @@ const stage = completedStatuses.includes(contractStatus)
       // 未確定の車両情報は表示しない
       vehicle: '',
       nameChange: '',
-      handover: vehicleProgress?.delivery_confirmed_date || vehicleProgress?.delivery_available_date || ''
+      deliveryAvailableDate: vehicleProgress?.delivery_available_date || '',
+      deliveryConfirmedDate: vehicleProgress?.delivery_confirmed_date || ''
     });
 
   }catch(err){
