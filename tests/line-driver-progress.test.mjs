@@ -44,3 +44,5 @@ test('既存申込と車両台帳は読み取りのみで、既存情報も表�
   assert.ok(!api.includes('.delete('));
   assert.ok(!api.includes('.update('));
 });
+
+// Read-only regression checks.
