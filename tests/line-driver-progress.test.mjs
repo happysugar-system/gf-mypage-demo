@@ -66,3 +66,5 @@ test('LINE版APIとスタッフ画面は納車日2種類を同じ保存キーで
  assert.match(api,/items\.some\(v=>v\.vehicle_id===rows\[0\]\.vehicle_id\)/);
  assert.match(api,/let progress=null;/);
 });
+
+// Delivery-date regression checks are read-only.
