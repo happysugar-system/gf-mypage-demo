@@ -94,6 +94,7 @@ button:disabled{opacity:.5}
   color:#5b6b67;
   flex:none;
 }
+.step-date{margin-left:auto;color:#61756f;font-size:12px;white-space:nowrap}
 .step.current .dot{
   background:#166b56;
   color:white;
@@ -268,8 +269,13 @@ button:disabled{opacity:.5}
     </div>
 
     <div class="row">
-      <span>引渡可能日</span>
-      <strong id="handover"></strong>
+      <span>納車可能日</span>
+      <strong id="deliveryAvailableDate"></strong>
+    </div>
+
+    <div class="row">
+      <span>納車確定日</span>
+      <strong id="deliveryConfirmedDate"></strong>
     </div>
 
     <button class="secondary" onclick="loadMyPage()">
@@ -524,7 +530,7 @@ function showError(message){
 
 /**
  * マイページ表示
- * 既存の5段階の進捗表示を維持する。
+ * 申込・契約を含む7段階の進捗を表示する。
  */
 function showPage(d){
 
@@ -533,7 +539,7 @@ function showPage(d){
     (d.driverId || '');
 
   $('status').textContent =
-    '現在：' + (d.stage || '確認中');
+    '現在：' + (d.vehicleStage || d.stage || '確認中');
 
   [
     'receipt',
@@ -543,7 +549,8 @@ function showPage(d){
     'startWish',
     'contract',
     'nameChange',
-    'handover'
+    'deliveryAvailableDate',
+    'deliveryConfirmedDate'
   ].forEach(k => {
     $(k).textContent = d[k] || '未定';
   });
@@ -553,16 +560,24 @@ function showPage(d){
 
   $('vehicle').textContent = d.vehicle || '';
 
+  // 申込・契約の2段階を常に残し、車両の5段階を接続する。
+  // 車両の進捗は貸出状況や社内用の管理区分とは独立。
   const steps = [
     '申込受付',
     '契約締結',
     '車両準備中',
-    '名義変更',
-    '引渡可能'
+    '車両手配済み',
+    '名義変更前',
+    '名義変更中',
+    '名義変更済み'
   ];
-
-  const current = steps.indexOf(d.stage);
-
+  const vehicleSteps = steps.slice(2);
+  const vehicleStage = vehicleSteps.includes(d.vehicleStage) ? d.vehicleStage : '';
+  // 旧ステータスを読み込んだ利用者にも7段階を表示する。
+  const legacyStage = {'名義変更':'名義変更中','引渡可能':'名義変更済み'}[d.stage] || d.stage;
+  const current = steps.indexOf(vehicleStage || legacyStage);
+  const progressDates = d.progressDates && typeof d.progressDates === 'object'
+    ? d.progressDates : {};
   $('steps').replaceChildren();
 
   steps.forEach((step,i) => {
@@ -584,6 +599,18 @@ function showPage(d){
     title.textContent = step;
 
     el.append(dot,title);
+    {
+      const dateValue = progressDates[step] || (step==='申込受付' ? d.receivedAt : step==='契約締結' && current >= 1 ? d.contractUpdatedAt : '');
+      if(dateValue && i <= current){
+        const date = document.createElement('span');
+        date.className = 'step-date';
+        // UTC or local ISO timestamps are formatted for Japanese users.
+        const parsed = new Date(String(dateValue));
+        date.textContent = Number.isNaN(parsed.getTime())
+          ? '' : parsed.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',timeZone:'Asia/Tokyo'});
+        el.append(date);
+      }
+    }
     $('steps').append(el);
   });
 
@@ -751,6 +778,17 @@ async function loadMyPage(options={}){
       throw new Error('DriverIDの照合に失敗しました');
     }
 
+    // 本人用RLSで保護された進捗専用表を読む。社内用管理区分は読まない。
+    const {data:progressRows,error:progressError} = await authClient
+      .from('gf_driver_vehicle_progress')
+      .select('vehicle_id,stage,stage_dates,delivery_available_date,delivery_confirmed_date')
+      .eq('driver_id',link.driver_id)
+      .limit(1);
+    if(currentCheck !== checkSequence) return;
+    // 新しい進捗APIが一時的に利用できない場合も、既存申込情報は表示する。
+    if(progressError) console.warn('進捗情報の取得をスキップ', progressError.code || 'unknown');
+    const vehicleProgress = progressError ? null : (progressRows?.[0] || null);
+
     // ④ 契約状況に応じて進捗を判定
     // ③車両準備中以降は車両台帳との連携後に対応
     const contractStatus = String(app.contract_status ?? '').trim();
@@ -770,7 +808,9 @@ const stage = completedStatuses.includes(contractStatus)
       name: '',
       driverId: link.driver_id,
       stage: stage,
-
+      contractUpdatedAt: app.contract_updated_at || '',
+      vehicleStage: completedStatuses.includes(contractStatus) ? (vehicleProgress?.stage || '') : '',
+      progressDates: vehicleProgress?.stage_dates || {},
       receipt: app.receipt_id,
       receptionStatus:
         app.reception_status || '確認中',
@@ -786,7 +826,8 @@ const stage = completedStatuses.includes(contractStatus)
       // 未確定の車両情報は表示しない
       vehicle: '',
       nameChange: '',
-      handover: ''
+      deliveryAvailableDate: vehicleProgress?.delivery_available_date || '',
+      deliveryConfirmedDate: vehicleProgress?.delivery_confirmed_date || ''
     });
 
   }catch(err){
