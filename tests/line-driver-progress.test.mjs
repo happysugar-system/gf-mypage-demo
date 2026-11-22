@@ -46,3 +46,18 @@ test('既存申込と車両台帳は読み取りのみで、既存情報も表�
 });
 
 // Read-only regression checks.
+
+test('公開LINE版の7段階表示と解除ボタンが配信されている',async()=>{
+ const response=await fetch('https://happysugar-system.github.io/gf-mypage-demo/demo-line-identity-preview.html',{signal:AbortSignal.timeout(15000)});
+ assert.equal(response.status,200);
+ const live=await response.text();
+ for(const text of ["'車両手配済み'","'名義変更前'","'名義変更中'","'名義変更済み'","gf-line-driver-demo-reset-stage"])
+   assert.ok(live.includes(text),'public LINE page missing '+text);
+});
+test('車両取得APIは未認証呼び出しを拒否し、データを変えない',async()=>{
+ const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{
+  method:'POST',headers:{origin:'https://happysugar-system.github.io','content-type':'application/json'},
+  body:JSON.stringify({line_id_token:'invalid'}),signal:AbortSignal.timeout(15000)
+ });
+ assert.equal(response.status,400);
+});
