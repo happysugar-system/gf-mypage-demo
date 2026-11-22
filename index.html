@@ -810,9 +810,6 @@ const stage = completedStatuses.includes(contractStatus)
       contractUpdatedAt: app.contract_updated_at || '',
       vehicleStage: completedStatuses.includes(contractStatus) ? (vehicleProgress?.stage || '') : '',
       progressDates: vehicleProgress?.stage_dates || {},
-      deliveryAvailableDate: vehicleProgress?.delivery_available_date || '',
-      deliveryConfirmedDate: vehicleProgress?.delivery_confirmed_date || '',
-
       receipt: app.receipt_id,
       receptionStatus:
         app.reception_status || '確認中',
