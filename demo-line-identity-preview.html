@@ -100,7 +100,7 @@ async function init(){
    for(const [label,key] of [['納車可能日','delivery_available_date'],['納車確定日','delivery_confirmed_date']]){
      const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';
      const name=document.createElement('span');name.textContent=label;
-     const val=document.createElement('strong');val.textContent=a.vehicle_progress?.[key]||'未定';val.style.cssText='text-align:right;overflow-wrap:anywhere';row.append(name,val);info.append(row);
+     const val=document.createElement('strong');const rawDate=a.vehicle_progress?.[key]||'';const matched=/^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);val.textContent=matched?(Number(matched[1])+'年'+Number(matched[2])+'月'+Number(matched[3])+'日'):(rawDate||'未定');val.style.cssText='text-align:right;overflow-wrap:anywhere';row.append(name,val);info.append(row);
    }
    const note=document.createElement('p');note.className='muted';note.textContent='車両進捗はスタッフが登録した内容を表示します。未登録の場合は申込・契約情報のみから表示しています。';out.append(note);
   }catch(e){msg.textContent=e.message||'取得できませんでした';}
