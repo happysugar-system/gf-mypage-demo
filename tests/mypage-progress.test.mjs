@@ -40,3 +40,9 @@ test('旧表示を7段階に変換できる',()=>{
  const {steps}=runPage({...basic,stage:'名義変更'});
  assert.match(steps[5].className,/current/);
 });
+
+test('進捗取得に失敗しても既存申込表示を継続する',()=>{
+ assert.match(html, /if\(progressError\) console\.warn/);
+ assert.match(html, /progressError \? null : \(progressRows\?\.\[0\] \|\| null\)/);
+ assert.doesNotMatch(html, /if\(progressError\) throw progressError/);
+});
