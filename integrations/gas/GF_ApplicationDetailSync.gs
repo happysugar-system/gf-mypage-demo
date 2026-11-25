@@ -36,6 +36,8 @@ function GF_SB_申込詳細同期(){
       const q='?receipt_id=eq.'+encodeURIComponent(c.id)+'&driver_id=eq.'+encodeURIComponent(c.driver);
       GF_SB_v4API_(GF_SB_V4.APPLICATION_TABLE,q,'patch',c.patch,'return=minimal');written++;
     }
-    return {requested:written,remaining:Math.max(0,changes.length-written)};
+    const verified=GF_SB_v4全件_(GF_SB_V4.APPLICATION_TABLE,'receipt_id,driver_id,application_area,application_email');
+    const remaining=GF_SB_申込詳細差分計画_(sh.getDataRange().getDisplayValues(),verified).length;
+    return {requested:written,remaining,complete:remaining===0};
   }finally{lock.releaseLock();}
 }
