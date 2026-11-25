@@ -73,7 +73,7 @@ async function init(){
    if(!a){msg.textContent='申込履歴は登録されていません。';return;}
    msg.textContent='';
    for(const [label,key] of [['申込番号','receipt_id'],['受付日時','received_at'],['受付状況','reception_status'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['契約状況','contract_status']]){
-    const row=document.createElement('p');row.style.cssText='overflow-wrap:anywhere;font-size:14px';row.textContent=label+'：'+(a[key]||'未定');out.append(row);
+    const row=document.createElement('p');row.style.cssText='overflow-wrap:anywhere;font-size:14px';row.textContent=label+'：'+(key==='reception_status'&&String(a[key]||'').trim()==='確認待ち'?'受付済み':a[key]||'未定');out.append(row);
    }
   }catch(e){msg.textContent='申込情報を取得できませんでした。再度お試しください。';}
  };
@@ -122,7 +122,7 @@ async function init(){
      out.append(row);
    }
    const info=document.createElement('div');info.style.cssText='background:white;border-radius:10px;padding:14px;margin-top:16px';
-   for(const [label,key] of [['申込番号','receipt_id'],['受付状況','reception_status'],['受付日時','received_at'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['契約状況','contract_status']]){const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';const left=document.createElement('span');left.textContent=label;const right=document.createElement('strong');right.style.cssText='text-align:right;overflow-wrap:anywhere';right.textContent=a[key]||'未定';row.append(left,right);info.append(row);}out.append(info);
+   for(const [label,key] of [['申込番号','receipt_id'],['受付状況','reception_status'],['受付日時','received_at'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['契約状況','contract_status']]){const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';const left=document.createElement('span');left.textContent=label;const right=document.createElement('strong');right.style.cssText='text-align:right;overflow-wrap:anywhere';right.textContent=key==='reception_status'&&String(a[key]||'').trim()==='確認待ち'?'受付済み':a[key]||'未定';row.append(left,right);info.append(row);}out.append(info);
    for(const [label,key] of [['納車予定日','delivery_available_date'],['納車確定日','delivery_confirmed_date']]){
      const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';
      const name=document.createElement('span');name.textContent=label;
