@@ -74,7 +74,7 @@ test('納車予定日の表示変更は既存保存キーを維持する',()=>{
 
 test('同時読み込みをまとめ、完了後は最新情報を再取得する',async()=>{
  const start=html.indexOf('let driverReadInFlight=null;');
- const end=html.indexOf('const applicationPanel=',start);
+ const end=html.indexOf('function driverMenuState(',start);
  assert.ok(start>=0&&end>start);
  let calls=0;
  const read=new Function('liff','fetch','location',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async()=>{calls++;return {ok:true,json:async()=>({vehicles:[]})};},{search:''});
@@ -84,19 +84,18 @@ test('同時読み込みをまとめ、完了後は最新情報を再取得す�
  assert.equal(calls,2);
 });
 
-test('申込詳細は既存の本人確認済みAPIを使用し、表示項目を限定する',()=>{
- const start=html.indexOf("const applicationPanel=");
- const end=html.indexOf("const progressPanel=",start);
- assert.ok(start>=0&&end>start);
+test('申込詳細は申込状況内に統合し、本人確認済みAPIを使用する',()=>{
+ const start=html.indexOf('const progressPanel='),end=html.indexOf('const vehiclePanel=',start);
  const panel=html.slice(start,end);
+ assert.ok(start>=0&&end>start);
  assert.ok(panel.includes('await readDriverVehicles()'));
  assert.ok(panel.includes('result.application'));
- assert.ok(panel.includes('row.textContent='));
+ assert.ok(panel.includes('right.textContent='));
  assert.ok(!panel.includes('innerHTML'));
  assert.ok(!panel.includes('fetch('));
- for(const field of ['receipt_id','received_at','reception_status','delivery_wish','start_wish','contract_status'])assert.ok(panel.includes(field));
+ assert.ok(!html.includes('id="lineDriverApplicationOpen"'));
+ for(const field of ['receipt_id','received_at','reception_status','delivery_wish','start_wish','application_area','application_email','contract_status'])assert.ok(panel.includes(field));
 });
-
 test('フルナンバーは管轄と車番を結合し、未登録項目を安全に扱う',()=>{
  const match=api.match(/full_vehicle_number:(\[String\(d\['管轄'\][^;]+?\.join\(' '\))/);
  assert.ok(match);
@@ -105,7 +104,7 @@ test('フルナンバーは管轄と車番を結合し、未登録項目を安�
  assert.equal(render({'車番':'0012'},{}),'0012');
  assert.equal(render({}, {vehicle_number:'1234'}),'1234');
  assert.equal(render({},{}),'');
- assert.equal(html.split("title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録'").length-1,2);
+ assert.equal(html.split("title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録'").length-1,1);
 });
 
 test('受付確認待ちは表示のみ受付済みに変換し、LINE承認は維持する',()=>{
@@ -121,9 +120,11 @@ test('受付確認待ちは表示のみ受付済みに変換し、LINE承認は�
 
  test('検証用APIは明示指定時だけ使用する',async()=>{
  const start=html.indexOf('let driverReadInFlight=null;');
- const end=html.indexOf('const applicationPanel=',start);
+ const end=html.indexOf('function driverMenuState(',start);
  for(const [search,endpoint] of [['','gf-line-driver-vehicles-stage'],['?detailReview=1','gf-line-driver-vehicles-detail-review']]){
  let url='';const read=new Function('liff','fetch','location',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async u=>{url=u;return {ok:true,json:async()=>({})};},{search});await read();assert.ok(url.endsWith('/'+endpoint));
  }
  assert.ok(api.includes(".eq('receipt_id',app.receipt_id).eq('driver_id',driverId)"));
  });
+
+test('既存ドライバーの申込なし・車両ありは車両メニューのみ',()=>{const start=html.indexOf('function driverMenuState('),end=html.indexOf('let noticeRequest=',start);const menu=new Function(html.slice(start,end)+';return driverMenuState;')();const result=menu({vehicles:[{'区分/ステータス':'貸出中'}]});assert.equal(result.application,false);assert.equal(result.vehicles,true);assert.equal(menu({application:{},vehicles:[]}).application,true);});
