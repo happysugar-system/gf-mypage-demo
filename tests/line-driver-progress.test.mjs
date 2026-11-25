@@ -83,3 +83,16 @@ test('同時読み込みをまとめ、完了後は最新情報を再取得す�
  await read();
  assert.equal(calls,2);
 });
+
+test('申込詳細は既存の本人確認済みAPIを使用し、表示項目を限定する',()=>{
+ const start=html.indexOf("const applicationPanel=");
+ const end=html.indexOf("const progressPanel=",start);
+ assert.ok(start>=0&&end>start);
+ const panel=html.slice(start,end);
+ assert.ok(panel.includes('await readDriverVehicles()'));
+ assert.ok(panel.includes('result.application'));
+ assert.ok(panel.includes('row.textContent='));
+ assert.ok(!panel.includes('innerHTML'));
+ assert.ok(!panel.includes('fetch('));
+ for(const field of ['receipt_id','received_at','reception_status','delivery_wish','start_wish','contract_status'])assert.ok(panel.includes(field));
+});
