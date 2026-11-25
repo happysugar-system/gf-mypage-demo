@@ -61,6 +61,11 @@ async function init(){
   })().finally(()=>{driverReadInFlight=null;});
   return driverReadInFlight;
  };
+ function driverMenuState(result){
+ const vehicles=Array.isArray(result.vehicles)?result.vehicles:[];
+ const active=vehicles.filter(v=>['貸出中','代車'].includes(String(v['区分/ステータス']||'').trim()));
+ return {application:!!result.application,vehicles:active.length>0,active};
+}
  let noticeRequest=0;
  async function refreshDriverNotices(){
   const request=++noticeRequest;
@@ -69,6 +74,11 @@ async function init(){
   try{
    const result=await readDriverVehicles();
    if(request!==noticeRequest)return;
+   const menus=driverMenuState(result);
+   document.getElementById('lineDriverProgressOpen').hidden=!menus.application;
+   document.getElementById('lineDriverVehiclesOpen').hidden=!menus.vehicles;
+   if(!menus.application)document.getElementById('lineDriverProgressPanel').hidden=true;
+   if(!menus.vehicles)document.getElementById('lineDriverVehiclesPanel').hidden=true;
    const notices=Array.isArray(result.notices)?result.notices.filter(n=>typeof n==='string'&&n.trim()).slice(0,10):[];
    for(const notice of notices){const item=document.createElement('div');item.style.cssText='padding:8px 0;border-bottom:1px solid #d5e4df';item.textContent=notice;out.append(item);}
    box.hidden=notices.length===0;
@@ -83,21 +93,7 @@ async function init(){
   try{
    const result=await readDriverVehicles();
    const a=result.application;
-   if(!a){
-    const vehicles=Array.isArray(result.vehicles)?result.vehicles:[];
-    if(!vehicles.length){msg.textContent='申込履歴と現在の利用車両情報は登録されていません。';return;}
-    msg.textContent='過去の申込履歴はありません。現在の車両台帳の情報を表示しています。';
-    for(const v of vehicles){
-     const box=document.createElement('div');box.style.cssText='background:white;border-radius:10px;padding:14px;margin:12px 0';
-     const title=document.createElement('h4');title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録';box.append(title);
-     for(const [label,key] of [['車両状況','区分/ステータス'],['車種','車種'],['名義変更日','名義変更日'],['引渡日','引渡し'],['車検満了日','車検満了日']]){
-      if(!v[key])continue;
-      const row=document.createElement('p');row.style.cssText='font-size:14px;margin:8px 0';row.textContent=label+'：'+v[key];box.append(row);
-     }
-     out.append(box);
-    }
-    return;
-   }
+   if(!a){msg.textContent='現在のお申込みはありません。';return;}
    msg.textContent='';
    const status=document.createElement('div');status.style.cssText='background:#e9f3ee;color:#176b55;border-radius:10px;padding:14px;font-weight:700;margin-bottom:12px';status.textContent='現在：'+(a.stage||'確認中');out.append(status);
    const steps=['申込受付','契約締結','車両準備中','車両手配済み','名義変更前','名義変更中','名義変更済み'];
@@ -135,9 +131,10 @@ async function init(){
   msg.textContent='車両情報を取得しています…';list.replaceChildren();
   try{
    const data=await readDriverVehicles();
-   if(!data.vehicles.length){msg.textContent='現在、紐づく車両情報がありません。';return;}
+   const active=driverMenuState(data).active;
+   if(!active.length){msg.textContent='現在、紐づく車両情報がありません。';return;}
    msg.textContent='';
-   for(const v of data.vehicles){
+   for(const v of active){
     const box=document.createElement('div');box.style.cssText='background:white;border-radius:10px;padding:14px;margin:12px 0';
     const title=document.createElement('h4');title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録';box.append(title);
     for(const [label,key] of [['車両ID','vehicle_id'],['車種','車種'],['カラー','カラー'],['車両状況','区分/ステータス'],['車検満了日','車検満了日'],['名義変更予定日','名変予定日'],['名義変更日','名義変更日'],['引渡日','引渡し'],['納車予定日','納車予定日']]){
