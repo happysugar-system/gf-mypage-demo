@@ -71,3 +71,15 @@ test('納車予定日の表示変更は既存保存キーを維持する',()=>{
  assert.ok(html.includes("['納車予定日','delivery_available_date']"));
  assert.ok(!html.includes("['納車可能日','delivery_available_date']"));
 });
+
+test('同時読み込みをまとめ、完了後は最新情報を再取得する',async()=>{
+ const start=html.indexOf('let driverReadInFlight=null;');
+ const end=html.indexOf('const progressPanel=',start);
+ assert.ok(start>=0&&end>start);
+ let calls=0;
+ const read=new Function('liff','fetch',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async()=>{calls++;return {ok:true,json:async()=>({vehicles:[]})};});
+ await Promise.all([read(),read()]);
+ assert.equal(calls,1);
+ await read();
+ assert.equal(calls,2);
+});
