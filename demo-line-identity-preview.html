@@ -97,7 +97,7 @@ async function init(){
    }
    const info=document.createElement('div');info.style.cssText='background:white;border-radius:10px;padding:14px;margin-top:16px';
    for(const [label,key] of [['申込番号','receipt_id'],['受付状況','reception_status'],['受付日時','received_at'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['契約状況','contract_status']]){const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';const left=document.createElement('span');left.textContent=label;const right=document.createElement('strong');right.style.cssText='text-align:right;overflow-wrap:anywhere';right.textContent=a[key]||'未定';row.append(left,right);info.append(row);}out.append(info);
-   for(const [label,key] of [['納車可能日','delivery_available_date'],['納車確定日','delivery_confirmed_date']]){
+   for(const [label,key] of [['納車予定日','delivery_available_date'],['納車確定日','delivery_confirmed_date']]){
      const row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #edf0ef;padding:10px 0;font-size:14px';
      const name=document.createElement('span');name.textContent=label;
      const val=document.createElement('strong');const rawDate=a.vehicle_progress?.[key]||'';const matched=/^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);val.textContent=matched?(Number(matched[1])+'年'+Number(matched[2])+'月'+Number(matched[3])+'日'):(rawDate||'未定');val.style.cssText='text-align:right;overflow-wrap:anywhere';row.append(name,val);info.append(row);
