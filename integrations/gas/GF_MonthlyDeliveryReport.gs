@@ -1,9 +1,10 @@
 // Dedicated report workbook only. Never write to the authoritative ledger.
 function GF_DELIVERY_reportRows_(result){
- const map=new Map(),details=[['対象月','区分','VehicleID','日付','実績受付ID']];
+ const map=new Map(),details=[['対象月','区分','VehicleID','日付','実績受付ID','ドライバー名','車両ナンバー','車種','所属会社名','紹介元','稼働エリア']];
+ function info(x){x=x||{};return [x['現在使用者']||'未記録',[x['管轄'],x['車番']].filter(Boolean).join(' ')||'未記録',...['車種','所属会社名','紹介元','稼働エリア'].map(k=>x[k]||'未記録')];}
  function month(k){if(!map.has(k))map.set(k,[k,0,0]);return map.get(k);}
- for(const m of result.planned.months){month(m.month)[1]=m.planned_count;for(const r of m.planned)details.push([m.month,'予定',r.id,r.date,'']);}
- for(const m of result.actual.months){month(m.month)[2]=m.actual_count;for(const r of m.actual)details.push([m.month,'貸出開始実績（暫定）',result.details[r.id],r.date,r.id]);}
+ for(const m of result.planned.months){month(m.month)[1]=m.planned_count;for(const r of m.planned)details.push([m.month,'予定',r.id,r.date,'',...info(result.plannedInfo?.[r.id])]);}
+ for(const m of result.actual.months){month(m.month)[2]=m.actual_count;for(const r of m.actual)details.push([m.month,'貸出開始実績（暫定）',result.details[r.id],r.date,r.id,...info(result.actualInfo?.[r.id])]);}
  if(result.planned.invalid.length+result.actual.invalid.length)throw Error('不正日付あり：集計出力を中止');
  return {summary:[['対象月','納車予定台数','貸出開始実績台数（暫定）'],...[...map.values()].sort((a,b)=>a[0].localeCompare(b[0]))],details:[details[0],...details.slice(1).sort((a,b)=>a[0].localeCompare(b[0])||a[1].localeCompare(b[1])||a[3].localeCompare(b[3]))]};
 }
