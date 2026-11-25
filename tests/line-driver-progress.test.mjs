@@ -22,10 +22,10 @@ test('テスト用紐づけ解除と初回登録へ戻す機能を維持する',
   for(const fragment of ['id="demoResetArea"','id="demoResetDriver"','gf-line-driver-demo-reset-stage','reset_demo_driver_link','RESET_DEMO_DRIVER_LINK'])assert.ok(html.includes(fragment));
   assert.ok(html.includes('location.replace(location.origin+location.pathname'));
 });
-test('7段階の名称と納車可能日・確定日の表示がある',()=>{
+test('7段階の名称と納車予定日・確定日の表示がある',()=>{
   const names=['申込受付','契約締結','車両準備中','車両手配済み','名義変更前','名義変更中','名義変更済み'];
   for(const stage of names)assert.ok(html.includes("'"+stage+"'"),'missing stage '+stage);
-  for(const label of ['納車可能日','納車確定日'])assert.ok(html.includes(label));
+  for(const label of ['納車予定日','納車確定日'])assert.ok(html.includes(label));
   for(const column of ['delivery_available_date','delivery_confirmed_date','stage_dates'])assert.ok(html.includes(column)&&api.includes(column));
 });
 test('LINEの承認済みのDriverIDから本人の進捗だけ取得する',()=>{
@@ -45,7 +45,7 @@ test('既存申込と車両台帳は読み取りのみで、既存情報も表�
   assert.ok(!api.includes('.update('));
 });
 
-test('納車可能日・確定日は日本語表示で、未定の場合も崩れない',()=>{
+test('納車予定日・確定日は日本語表示で、未定の場合も崩れない',()=>{
  const start=html.indexOf('const rawDate=a.vehicle_progress?.[key]');
  const end=html.indexOf("val.style.cssText=",start);
  assert.ok(start>0&&end>start);
@@ -65,4 +65,9 @@ test('LINE版APIとスタッフ画面は納車日2種類を同じ保存キーで
  assert.match(api,/\.eq\('driver_id',driverId\)\.limit\(2\)/);
  assert.match(api,/items\.some\(v=>v\.vehicle_id===rows\[0\]\.vehicle_id\)/);
  assert.match(api,/let progress=null;/);
+});
+
+test('納車予定日の表示変更は既存保存キーを維持する',()=>{
+ assert.ok(html.includes("['納車予定日','delivery_available_date']"));
+ assert.ok(!html.includes("['納車可能日','delivery_available_date']"));
 });
