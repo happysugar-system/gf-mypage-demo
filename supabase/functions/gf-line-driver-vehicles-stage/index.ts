@@ -16,11 +16,17 @@ if(le||links?.length!==1)return reply({error:'ドライバーの承認が必要�
 const driverId=links[0].subject_id;
 const {data:driver,error:de}=await db.from('gf_driver_match_master_prod').select('driver_id').eq('driver_id',driverId).maybeSingle();
 if(de||!driver)return reply({error:'ドライバー情報がありません'},404);
-const {data:apps,error:ae}=await db.from('gf_mypage_applications_prod').select('receipt_id,driver_id,received_at,reception_status,contract_status,contract_updated_at,delivery_wish,start_wish,application_area,application_email,updated_at').eq('driver_id',driverId).order('updated_at',{ascending:false}).order('receipt_id',{ascending:false}).limit(1);if(ae)return reply({error:'申込情報を取得できませんでした'},503);
+const {data:apps,error:ae}=await db.from('gf_mypage_applications_prod').select('receipt_id,driver_id,received_at,reception_status,contract_status,contract_updated_at,delivery_wish,start_wish,updated_at').eq('driver_id',driverId).order('updated_at',{ascending:false}).order('receipt_id',{ascending:false}).limit(1);if(ae)return reply({error:'申込情報を取得できませんでした'},503);
 const {data:vehicles,error:ve}=await db.from('gf_vehicles').select('vehicle_id,vehicle_number,vehicle_data').eq('vehicle_data->>DriverID',driverId).limit(15);
 if(ve)return reply({error:'車両情報を取得できませんでした'},503);
 const items=(vehicles||[]).map(v=>{const d=v.vehicle_data||{};const fields=['車種','カラー','区分/ステータス','車検満了日','名変予定日','名義変更日','引渡し','引渡可能日','納車予定日','管理区分'];const o:{[key:string]:unknown}={vehicle_id:v.vehicle_id,vehicle_number:v.vehicle_number,full_vehicle_number:[String(d['管轄']??'').trim(),String(d['車番']??v.vehicle_number??'').trim()||String(v.vehicle_number??'').trim()].filter(Boolean).join(' ')};for(const k of fields)o[k]=typeof d[k]==='string'?d[k]:'';return o;});
 const app=apps?.[0]||null;
+// Optional extension: preserve existing application display before schema rollout.
+let detail:{application_area:string|null;application_email:string|null}={application_area:null,application_email:null};
+if(app){
+ const {data:extra,error:extraError}=await db.from('gf_mypage_applications_prod').select('application_area,application_email').eq('receipt_id',app.receipt_id).eq('driver_id',driverId).maybeSingle();
+ if(!extraError&&extra)detail={application_area:extra.application_area??null,application_email:extra.application_email??null};
+}
 const contract=String(app?.contract_status||'').trim();
 const signed=['契約締結済み','契約締結済','契約完了'].includes(contract);
 let progress=null;
@@ -42,7 +48,7 @@ return reply({vehicles:items,application:app?{
  receipt_id:app.receipt_id,received_at:app.received_at,reception_status:app.reception_status,
  contract_status:app.contract_status,contract_updated_at:app.contract_updated_at||null,
  delivery_wish:app.delivery_wish,start_wish:app.start_wish,
- application_area:app.application_area,application_email:app.application_email,
+ application_area:detail.application_area,application_email:detail.application_email,
  stage,vehicle_progress:progress
 }:null});
 }catch{return reply({error:'通信エラーが発生しました'},503);}
