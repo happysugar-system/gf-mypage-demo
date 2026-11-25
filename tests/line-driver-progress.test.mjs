@@ -77,7 +77,7 @@ test('同時読み込みをまとめ、完了後は最新情報を再取得す�
  const end=html.indexOf('const progressPanel=',start);
  assert.ok(start>=0&&end>start);
  let calls=0;
- const read=new Function('liff','fetch',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async()=>{calls++;return {ok:true,json:async()=>({vehicles:[]})};});
+ const read=new Function('liff','fetch','location',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async()=>{calls++;return {ok:true,json:async()=>({vehicles:[]})};},{search:''});
  await Promise.all([read(),read()]);
  assert.equal(calls,1);
  await read();
