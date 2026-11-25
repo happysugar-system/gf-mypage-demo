@@ -48,7 +48,7 @@ const stage=app?(signed?(progress?.stage||'車両準備中'):'申込受付'):nul
 let notices:string[]=[];
 try{
  const now=new Date().toISOString();
- const {data:noticeRows,error:noticeError}=await db.from('gf_driver_notices').select('body').eq('enabled',true).lte('starts_at',now).or('ends_at.is.null,ends_at.gt.'+now).order('starts_at',{ascending:false}).order('id',{ascending:false}).limit(5);
+ const {data:noticeRows,error:noticeError}=await db.from('gf_driver_notices').select('body').eq('enabled',true).lte('starts_at',now).or('ends_at.is.null,ends_at.gt.'+now).order('starts_at',{ascending:false}).order('id',{ascending:false}).limit(10);
  if(!noticeError)notices=(noticeRows||[]).map(n=>String(n.body)).filter(Boolean);
 }catch{/* optional feature */}
 return reply({notices,vehicles:items,application:app?{
