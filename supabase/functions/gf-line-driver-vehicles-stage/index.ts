@@ -44,7 +44,14 @@ if(app&&signed){
   }
 }
 const stage=app?(signed?(progress?.stage||'車両準備中'):'申込受付'):null;
-return reply({vehicles:items,application:app?{
+// Notices are optional and never block existing driver information.
+let notices:string[]=[];
+try{
+ const now=new Date().toISOString();
+ const {data:noticeRows,error:noticeError}=await db.from('gf_driver_notices').select('body').eq('enabled',true).lte('starts_at',now).or('ends_at.is.null,ends_at.gt.'+now).order('starts_at',{ascending:false}).order('id',{ascending:false}).limit(5);
+ if(!noticeError)notices=(noticeRows||[]).map(n=>String(n.body)).filter(Boolean);
+}catch{/* optional feature */}
+return reply({notices,vehicles:items,application:app?{
  receipt_id:app.receipt_id,received_at:app.received_at,reception_status:app.reception_status,
  contract_status:app.contract_status,contract_updated_at:app.contract_updated_at||null,
  delivery_wish:app.delivery_wish,start_wish:app.start_wish,
