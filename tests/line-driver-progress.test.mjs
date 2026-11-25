@@ -107,3 +107,14 @@ test('フルナンバーは管轄と車番を結合し、未登録項目を安�
  assert.equal(render({},{}),'');
  assert.equal(html.split("title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録'").length-1,2);
 });
+
+test('受付確認待ちは表示のみ受付済みに変換し、LINE承認は維持する',()=>{
+ const match=html.match(/right\.textContent=(key==='reception_status'[^;]+);/);
+ assert.ok(match);
+ const render=new Function('key','a','return '+match[1]);
+ assert.equal(render('reception_status',{reception_status:'確認待ち'}),'受付済み');
+ assert.equal(render('reception_status',{reception_status:'対応中'}),'対応中');
+ assert.equal(render('contract_status',{contract_status:'確認待ち'}),'確認待ち');
+ assert.equal(render('reception_status',{}),'未定');
+ assert.ok(html.includes("heading.textContent='管理者確認待ち'"));
+});
