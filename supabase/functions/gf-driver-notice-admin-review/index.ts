@@ -19,6 +19,7 @@ Deno.serve(async req=>{
  if(!access?.enabled){console.warn("gf_reception_access_denied","not_authorized");return respond(403,{error:"not_authorized"});}
  let input;try{input=await req.json()}catch{return respond(400,{error:"invalid_json"})}
  if(!["owner","staff"].includes(access.role))return respond(403,{error:"not_authorized"});
+ if(!input||typeof input!=="object")return respond(400,{error:"invalid_input"});
  if(input.action==="list"){
  const {data,error}=await db.from("gf_driver_notices").select("id,body,enabled,starts_at,ends_at").order("starts_at",{ascending:false}).limit(200);
  return error?respond(503,{error:"notices_unavailable"}):respond(200,{notices:data});
@@ -30,7 +31,7 @@ Deno.serve(async req=>{
  if(!body||body.length>1000||!Number.isFinite(starts)||(ends!==null&&(!Number.isFinite(ends)||ends<=starts))||typeof input.enabled!=="boolean")return respond(400,{error:"invalid_notice"});
  const row={body,enabled:input.enabled,starts_at:new Date(starts).toISOString(),ends_at:ends===null?null:new Date(ends).toISOString()};
  const id=input.id;
- if(id!=null&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id)))return respond(400,{error:"invalid_id"});
+ if(id!=null&&(!Number.isSafeInteger(id)||id<1))return respond(400,{error:"invalid_id"});
  const q=db.from("gf_driver_notices");
  const {data,error}=await (id==null?q.insert(row):q.update(row).eq("id",id)).select("id,body,enabled,starts_at,ends_at").single();
  return error?respond(503,{error:"notice_save_failed"}):respond(200,{notice:data});
