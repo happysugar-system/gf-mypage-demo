@@ -74,7 +74,7 @@ test('納車予定日の表示変更は既存保存キーを維持する',()=>{
 
 test('同時読み込みをまとめ、完了後は最新情報を再取得する',async()=>{
  const start=html.indexOf('let driverReadInFlight=null;');
- const end=html.indexOf('const progressPanel=',start);
+ const end=html.indexOf('const applicationPanel=',start);
  assert.ok(start>=0&&end>start);
  let calls=0;
  const read=new Function('liff','fetch','location',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async()=>{calls++;return {ok:true,json:async()=>({vehicles:[]})};},{search:''});
@@ -118,3 +118,12 @@ test('受付確認待ちは表示のみ受付済みに変換し、LINE承認は�
  assert.equal(render('reception_status',{}),'未定');
  assert.ok(html.includes("heading.textContent='管理者確認待ち'"));
 });
+
+ test('検証用APIは明示指定時だけ使用する',async()=>{
+ const start=html.indexOf('let driverReadInFlight=null;');
+ const end=html.indexOf('const applicationPanel=',start);
+ for(const [search,endpoint] of [['','gf-line-driver-vehicles-stage'],['?detailReview=1','gf-line-driver-vehicles-detail-review']]){
+ let url='';const read=new Function('liff','fetch','location',html.slice(start,end)+';return readDriverVehicles;')({getIDToken:()=> 'test-token'},async u=>{url=u;return {ok:true,json:async()=>({})};},{search});await read();assert.ok(url.endsWith('/'+endpoint));
+ }
+ assert.ok(api.includes(".eq('receipt_id',app.receipt_id).eq('driver_id',driverId)"));
+ });
