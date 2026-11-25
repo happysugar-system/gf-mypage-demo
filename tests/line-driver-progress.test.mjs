@@ -96,3 +96,14 @@ test('申込詳細は既存の本人確認済みAPIを使用し、表示項目�
  assert.ok(!panel.includes('fetch('));
  for(const field of ['receipt_id','received_at','reception_status','delivery_wish','start_wish','contract_status'])assert.ok(panel.includes(field));
 });
+
+test('フルナンバーは管轄と車番を結合し、未登録項目を安全に扱う',()=>{
+ const match=api.match(/full_vehicle_number:(\[String\(d\['管轄'\][^;]+?\.join\(' '\))/);
+ assert.ok(match);
+ const render=new Function('d','v','return '+match[1]);
+ assert.equal(render({'管轄':'大宮481り','車番':'12-34'},{}),'大宮481り 12-34');
+ assert.equal(render({'車番':'0012'},{}),'0012');
+ assert.equal(render({}, {vehicle_number:'1234'}),'1234');
+ assert.equal(render({},{}),'');
+ assert.equal(html.split("title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録'").length-1,2);
+});
