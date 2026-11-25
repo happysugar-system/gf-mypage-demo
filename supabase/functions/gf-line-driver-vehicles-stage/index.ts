@@ -19,7 +19,7 @@ if(de||!driver)return reply({error:'ドライバー情報がありません'},40
 const {data:apps,error:ae}=await db.from('gf_mypage_applications_prod').select('receipt_id,driver_id,received_at,reception_status,contract_status,contract_updated_at,delivery_wish,start_wish,updated_at').eq('driver_id',driverId).order('updated_at',{ascending:false}).order('receipt_id',{ascending:false}).limit(1);if(ae)return reply({error:'申込情報を取得できませんでした'},503);
 const {data:vehicles,error:ve}=await db.from('gf_vehicles').select('vehicle_id,vehicle_number,vehicle_data').eq('vehicle_data->>DriverID',driverId).limit(15);
 if(ve)return reply({error:'車両情報を取得できませんでした'},503);
-const items=(vehicles||[]).map(v=>{const d=v.vehicle_data||{};const fields=['車種','カラー','区分/ステータス','車検満了日','名変予定日','名義変更日','引渡し','引渡可能日','納車予定日','管理区分'];const o:{[key:string]:unknown}={vehicle_id:v.vehicle_id,vehicle_number:v.vehicle_number};for(const k of fields)o[k]=typeof d[k]==='string'?d[k]:'';return o;});
+const items=(vehicles||[]).map(v=>{const d=v.vehicle_data||{};const fields=['車種','カラー','区分/ステータス','車検満了日','名変予定日','名義変更日','引渡し','引渡可能日','納車予定日','管理区分'];const o:{[key:string]:unknown}={vehicle_id:v.vehicle_id,vehicle_number:v.vehicle_number,full_vehicle_number:[String(d['管轄']??'').trim(),String(d['車番']??v.vehicle_number??'').trim()||String(v.vehicle_number??'').trim()].filter(Boolean).join(' ')};for(const k of fields)o[k]=typeof d[k]==='string'?d[k]:'';return o;});
 const app=apps?.[0]||null;
 const contract=String(app?.contract_status||'').trim();
 const signed=['契約締結済み','契約締結済','契約完了'].includes(contract);
