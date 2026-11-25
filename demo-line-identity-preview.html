@@ -49,6 +49,18 @@ async function init(){
  const profileCall=async(action,extra={})=>{const token=liff.getIDToken();if(!token)throw Error('LINE認証情報を取得できません');const response=await fetch(profileEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,line_id_token:token,...extra})});const value=await response.json();if(!response.ok)throw Error(value.error||'取得できませんでした');return value;};
  const showHome=()=>{onboarding.hidden=true;profile.hidden=true;home.hidden=false;heading.hidden=true;message.hidden=true;refresh.hidden=true;status.hidden=true;};
 
+ // Coalesce concurrent read-only requests within this authenticated page session.
+ let driverReadInFlight=null;
+ const readDriverVehicles=()=>{
+  if(driverReadInFlight)return driverReadInFlight;
+  const token=liff.getIDToken();if(!token)return Promise.reject(Error('LINE認証情報がありません'));
+  driverReadInFlight=(async()=>{
+   const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
+   const result=await response.json();if(!response.ok)throw Error(result.error||'車両情報を取得できません');
+   return result;
+  })().finally(()=>{driverReadInFlight=null;});
+  return driverReadInFlight;
+ };
  const progressPanel=document.getElementById('lineDriverProgressPanel');
  document.getElementById('lineDriverProgressOpen').onclick=async()=>{
   if(!progressPanel.hidden){progressPanel.hidden=true;return;}
@@ -56,9 +68,7 @@ async function init(){
   const msg=document.getElementById('lineDriverProgressMessage'),out=document.getElementById('lineDriverProgressContent');
   out.replaceChildren();msg.textContent='申込情報を取得しています…';
   try{
-   const token=liff.getIDToken();if(!token)throw Error('LINE認証情報がありません');
-   const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
-   const result=await response.json();if(!response.ok)throw Error(result.error||'申込情報を取得できません');
+   const result=await readDriverVehicles();
    const a=result.application;
    if(!a){
     const vehicles=Array.isArray(result.vehicles)?result.vehicles:[];
@@ -111,9 +121,7 @@ async function init(){
   const msg=document.getElementById('lineDriverVehiclesMessage'),list=document.getElementById('lineDriverVehiclesList');
   msg.textContent='車両情報を取得しています…';list.replaceChildren();
   try{
-   const token=liff.getIDToken();if(!token)throw Error('LINE認証情報がありません');
-   const r=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
-   const data=await r.json();if(!r.ok)throw Error(data.error||'車両情報を取得できません');
+   const data=await readDriverVehicles();
    if(!data.vehicles.length){msg.textContent='現在、紐づく車両情報がありません。';return;}
    msg.textContent='';
    for(const v of data.vehicles){
