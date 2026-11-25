@@ -72,7 +72,7 @@ async function init(){
    const a=result.application;
    if(!a){msg.textContent='申込履歴は登録されていません。';return;}
    msg.textContent='';
-   for(const [label,key] of [['申込番号','receipt_id'],['受付日時','received_at'],['受付状況','reception_status'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['契約状況','contract_status']]){
+   for(const [label,key] of [['申込番号','receipt_id'],['受付日時','received_at'],['受付状況','reception_status'],['納車希望','delivery_wish'],['稼働開始希望','start_wish'],['稼働エリア','application_area'],['申込時メールアドレス','application_email'],['契約状況','contract_status']]){
     const row=document.createElement('p');row.style.cssText='overflow-wrap:anywhere;font-size:14px';row.textContent=label+'：'+(key==='reception_status'&&String(a[key]||'').trim()==='確認待ち'?'受付済み':a[key]||'未定');out.append(row);
    }
   }catch(e){msg.textContent='申込情報を取得できませんでした。再度お試しください。';}
