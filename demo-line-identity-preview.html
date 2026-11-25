@@ -92,7 +92,7 @@ async function init(){
     msg.textContent='過去の申込履歴はありません。現在の車両台帳の情報を表示しています。';
     for(const v of vehicles){
      const box=document.createElement('div');box.style.cssText='background:white;border-radius:10px;padding:14px;margin:12px 0';
-     const title=document.createElement('h4');title.textContent=v.vehicle_number||'車番未登録';box.append(title);
+     const title=document.createElement('h4');title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録';box.append(title);
      for(const [label,key] of [['車両状況','区分/ステータス'],['車種','車種'],['名義変更日','名義変更日'],['引渡日','引渡し'],['車検満了日','車検満了日']]){
       if(!v[key])continue;
       const row=document.createElement('p');row.style.cssText='font-size:14px;margin:8px 0';row.textContent=label+'：'+v[key];box.append(row);
@@ -142,7 +142,7 @@ async function init(){
    msg.textContent='';
    for(const v of data.vehicles){
     const box=document.createElement('div');box.style.cssText='background:white;border-radius:10px;padding:14px;margin:12px 0';
-    const title=document.createElement('h4');title.textContent=v.vehicle_number||'車番未登録';box.append(title);
+    const title=document.createElement('h4');title.textContent=v.full_vehicle_number||v.vehicle_number||'車番未登録';box.append(title);
     for(const [label,key] of [['車両ID','vehicle_id'],['車種','車種'],['カラー','カラー'],['車両状況','区分/ステータス'],['車検満了日','車検満了日'],['名義変更予定日','名変予定日'],['名義変更日','名義変更日'],['引渡日','引渡し'],['納車予定日','納車予定日']]){
      if(!v[key])continue;const row=document.createElement('p');row.style.cssText='font-size:14px;margin:8px 0';row.textContent=label+'：'+v[key];box.append(row);
     }list.append(box);
