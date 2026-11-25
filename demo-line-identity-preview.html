@@ -55,7 +55,7 @@ async function init(){
   if(driverReadInFlight)return driverReadInFlight;
   const token=liff.getIDToken();if(!token)return Promise.reject(Error('LINE認証情報がありません'));
   driverReadInFlight=(async()=>{
-   const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
+   const response=await fetch((new URLSearchParams(location.search).get('detailReview')==='1'?'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-detail-review':'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
    const result=await response.json();if(!response.ok)throw Error(result.error||'車両情報を取得できません');
    return result;
   })().finally(()=>{driverReadInFlight=null;});
