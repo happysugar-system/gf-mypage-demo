@@ -55,8 +55,8 @@ try{
 let document_requests:unknown[]=[];
 let document_requests_available=false;
 try{
- const {data,error}=await db.from('gf_driver_document_review_requests').select('id,document_type,reason,status').eq('driver_id',driverId).in('status',['requested','submitted']).order('created_at',{ascending:false}).limit(50);
- if(!error){document_requests=data||[];document_requests_available=true;}
+ const {data,error}=await db.from('gf_driver_document_review_requests').select('id,document_type,reason,status').eq('driver_id',driverId).in('status',['requested','submitted','approving']).order('created_at',{ascending:false}).limit(50);
+ if(!error){document_requests=(data||[]).map(x=>({...x,status:x.status==='approving'?'submitted':x.status}));document_requests_available=true;}
 }catch{/* existing vehicle information remains available */}
 return reply({notices,document_requests,document_requests_available,vehicles:items,application:app?{
  receipt_id:app.receipt_id,received_at:app.received_at,reception_status:app.reception_status,
