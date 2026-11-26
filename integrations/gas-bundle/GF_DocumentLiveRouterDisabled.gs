@@ -72,7 +72,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const rows=GF_DocumentRows_(req,column('受付番号'),r.receiptId);
  if(rows.length!==1)throw Error('receipt_not_unique');
  const cell=name=>req.getRange(rows[0],column(name));
- if(cell('確認DriverID').getDisplayValue()!==r.driverId||cell('契約状況').getDisplayValue()==='契約完了')throw Error('receipt_not_editable');
+ if(cell('確認DriverID').getDisplayValue()!==r.driverId||['契約完了','契約締結済み','契約締結済'].includes(cell('契約状況').getDisplayValue()))throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
  const folder=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
  if(!folder||(r.folderId&&folder[1]!==r.folderId))throw Error('folder_not_verified');
@@ -189,7 +189,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  const hits=GF_DocumentRows_(req,col('受付番号'),review.receiptId);
  if(hits.length!==1)throw Error('receipt_not_unique');
  const row=hits[0],cell=k=>req.getRange(row,col(k));
- if(cell('確認DriverID').getDisplayValue()!==review.driverId||cell('契約状況').getDisplayValue()==='契約完了')throw Error('receipt_not_editable');
+ if(cell('確認DriverID').getDisplayValue()!==review.driverId||['契約完了','契約締結済み','契約締結済'].includes(cell('契約状況').getDisplayValue()))throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
  const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID'));
  const match=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
@@ -255,3 +255,10 @@ function GF_DocumentExistingFile_(folder,name){const it=folder.getFilesByName(na
 function GF_DocumentLink_(url,label){return '=HYPERLINK("'+url.replace(/"/g,'')+'","'+label+'")';}
 
 function GF_DocumentReleaseEnabled_(){return false;}
+
+/** Read-only readiness check; does not enable document writes or expose IDs. */
+function GF_DocumentLiveReadiness(){
+ const result={writesDisabled:!GF_DocumentReleaseEnabled_(),driveService:typeof Drive!=='undefined',sheetsService:typeof Sheets!=='undefined',target:false,headers:false,privateRoot:false};
+ try{const t=GF_DocumentDemoTarget_();result.target=true;GF_DocumentReceiptSheet_();result.headers=true;if(result.driveService)result.privateRoot=GF_DocumentPrivateDrive_(DriveApp.getFolderById(t.folderId));}catch(e){result.error='configuration_or_access_unverified';}
+ console.log(JSON.stringify(result));return result;
+}
