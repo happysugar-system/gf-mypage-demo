@@ -38,6 +38,12 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  if(assertPrivate(dir)!==true)throw Error('folder_access_not_verified');
  const digest=b=>Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,b));
  const name='再提出_'+requestId+'_'+digest(bytes).replace(/=+$/,'')+'.pdf';
+ // A retry may reuse the same bytes, but a different PDF must not create a second file for this request.
+ const prior=dir.getFiles();
+ while(prior.hasNext()){
+  const f=prior.next();
+  if(!f.isTrashed()&&f.getName().startsWith('再提出_'+requestId+'_')&&f.getName()!==name)throw Error('submission_conflict');
+ }
  const existing=GF216_既存ファイル_(dir,name);
  if(existing){if(existing.isTrashed()||existing.getMimeType()!=='application/pdf'||assertPrivate(existing)!==true||digest(existing.getBlob().getBytes())!==digest(bytes))throw Error('submission_conflict');return {fileId:existing.getId(),reused:true,verified:true};}
  const saved=dir.createFile(blob.copyBlob().setName(name));
