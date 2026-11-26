@@ -1,7 +1,7 @@
 export function validateSubmission(request,driverId,bytes,mime){
  if(!request||request.driver_id!==driverId||request.status!=='requested')throw Error('request_not_available');
  if(!['driver_license','residence_certificate'].includes(request.document_type))throw Error('invalid_document');
- if(!(bytes instanceof Uint8Array)||bytes.length<8||bytes.length>10485760||mime!=='application/pdf')throw Error('invalid_pdf');
+ if(!(bytes instanceof Uint8Array)||bytes.length<8||bytes.length>(request.document_type==='residence_certificate'?4000000:10485760)||mime!=='application/pdf')throw Error('invalid_pdf');
  if(String.fromCharCode(...bytes.slice(0,5))!=='%PDF-'||!/%%EOF\s*$/.test(String.fromCharCode(...bytes.slice(-1024))))throw Error('invalid_pdf');
  return {requestId:request.id,receiptId:request.receipt_id,driverId,documentType:request.document_type};
 }
