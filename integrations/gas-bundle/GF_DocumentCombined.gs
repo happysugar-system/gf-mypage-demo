@@ -60,23 +60,23 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_RESUBMISSION_WRITE_ENABLED')!=='YES')throw Error('resubmission_write_disabled');
  const target=props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
- if(!target||target!==GF215_BOOK_ID)throw Error('sheet_target_not_verified');
+ if(!target||target!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
  const req=GF_DocumentReceiptSheet_();
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const column=name=>{
   if(headers.filter(h=>h===name).length!==1)throw Error('receipt_headers_invalid');
   return headers.indexOf(name)+1;
  };
- const rows=GF215_一致行_(req,column('受付番号'),r.receiptId);
+ const rows=GF_DocumentRows_(req,column('受付番号'),r.receiptId);
  if(rows.length!==1)throw Error('receipt_not_unique');
  const cell=name=>req.getRange(rows[0],column(name));
  if(cell('確認DriverID').getDisplayValue()!==r.driverId||cell('契約状況').getDisplayValue()==='契約完了')throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
  const folder=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
  if(!folder||(r.folderId&&folder[1]!==r.folderId))throw Error('folder_not_verified');
- const root=DriveApp.getFolderById(props.getProperty('GF216_PROD_FOLDER_ID'));
+ const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID'));
  const parent=DriveApp.getFolderById(folder[1]);
- if(!GF216_直下_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
+ if(!GF_DocumentDirectChild_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
  const folders=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
  if(!folders.hasNext())throw Error('existing_document_folder_missing');
  const dir=folders.next();
@@ -90,7 +90,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
   const f=prior.next();
   if(!f.isTrashed()&&f.getName().startsWith('再提出_'+requestId+'_')&&f.getName()!==name)throw Error('submission_conflict');
  }
- const existing=GF216_既存ファイル_(dir,name);
+ const existing=GF_DocumentExistingFile_(dir,name);
  if(existing){if(existing.isTrashed()||existing.getMimeType()!=='application/pdf'||assertPrivate(existing)!==true||digest(existing.getBlob().getBytes())!==digest(bytes))throw Error('submission_conflict');return {fileId:existing.getId(),reused:true,verified:true};}
  const saved=dir.createFile(blob.copyBlob().setName(name));
  if(digest(saved.getBlob().getBytes())!==digest(bytes)||assertPrivate(dir)!==true||assertPrivate(saved)!==true)throw Error('saved_file_not_verified');
@@ -172,7 +172,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  if(typeof authorizeStaff!=='function'||authorizeStaff()!==true||typeof assertPrivate!=='function')throw Error('not_authorized');
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_APPROVAL_WRITE_ENABLED')!=='YES')throw Error('approval_write_disabled');
- if(!props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')||props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==GF215_BOOK_ID)throw Error('sheet_target_not_verified');
+ if(!props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')||props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
  if(!review||review.status!=='submitted'||review.verified!==true||!review.receiptId||!review.driverId||!/^[A-Za-z0-9_-]{10,200}$/.test(review.fileId))throw Error('invalid_review');
  const type=review.documentType;
  if(!['driver_license','residence_certificate'].includes(type))throw Error('invalid_document');
@@ -181,16 +181,16 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  const req=GF_DocumentReceiptSheet_();
  const h=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const col=k=>{if(h.filter(x=>x===k).length!==1)throw Error('invalid_header_'+k);return h.indexOf(k)+1;};
- const hits=GF215_一致行_(req,col('受付番号'),review.receiptId);
+ const hits=GF_DocumentRows_(req,col('受付番号'),review.receiptId);
  if(hits.length!==1)throw Error('receipt_not_unique');
  const row=hits[0],cell=k=>req.getRange(row,col(k));
  if(cell('確認DriverID').getDisplayValue()!==review.driverId||cell('契約状況').getDisplayValue()==='契約完了')throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
- const root=DriveApp.getFolderById(props.getProperty('GF216_PROD_FOLDER_ID'));
+ const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID'));
  const match=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
  if(!match)throw Error('folder_not_verified');
  const parent=DriveApp.getFolderById(match[1]);
- if(!GF216_直下_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_not_verified');
+ if(!GF_DocumentDirectChild_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_not_verified');
  const dirs=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
  if(!dirs.hasNext())throw Error('folder_missing');
  const dir=dirs.next();if(dirs.hasNext()||assertPrivate(dir)!==true)throw Error('folder_not_verified');
@@ -198,12 +198,12 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  const parents=file.getParents();let inside=false;while(parents.hasNext())if(parents.next().getId()===dir.getId())inside=true;
  if(!inside||file.isTrashed()||file.getMimeType()!=='application/pdf'||assertPrivate(file)!==true)throw Error('file_not_verified');
  const link=cell(type==='driver_license'?'免許証PDF':'住民票PDF'),check=cell(type==='driver_license'?'免許証確認':'住民票確認');
- const formula=GF216_リンク式_(file.getUrl(),type==='driver_license'?'🪪免許証を見る':'📄住民票を見る');
+ const formula=GF_DocumentLink_(file.getUrl(),type==='driver_license'?'🪪免許証を見る':'📄住民票を見る');
  const change=(target,userEnteredValue)=>({updateCells:{
   start:{sheetId:req.getSheetId(),rowIndex:row-1,columnIndex:target.getColumn()-1},
   rows:[{values:[{userEnteredValue}]}],fields:'userEnteredValue'
  }});
- Sheets.Spreadsheets.batchUpdate({requests:[change(link,{formulaValue:formula}),change(check,{stringValue:'確認OK'})]},GF215_BOOK_ID);
+ Sheets.Spreadsheets.batchUpdate({requests:[change(link,{formulaValue:formula}),change(check,{stringValue:'確認OK'})]},GF_DocumentDemoTarget_().sheetId);
  SpreadsheetApp.flush();
  if(cell('確認DriverID').getDisplayValue()!==review.driverId||cell('受付番号').getDisplayValue()!==review.receiptId||link.getFormula()!==formula||check.getDisplayValue()!=='確認OK')throw Error('sheet_not_verified');
  return {verified:true,fileId:review.fileId};
@@ -223,7 +223,7 @@ function GF_DocumentCombinedRoute_(e){
 function GF_DocumentReceiptSheet_(){
  const p=PropertiesService.getScriptProperties();
  const id=p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
- if(!id||typeof GF215_BOOK_ID==='undefined'||id!==GF215_BOOK_ID)throw Error('sheet_target_not_verified');
+ if(!id||id!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
  const req=SpreadsheetApp.openById(id).getSheetByName('車両依頼受付');
  if(!req)throw Error('receipt_sheet_missing');
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
@@ -231,3 +231,18 @@ function GF_DocumentReceiptSheet_(){
  for(const name of required)if(headers.filter(h=>h===name).length!==1)throw Error('receipt_headers_invalid');
  return req;
 }
+
+/** Explicit test-only target; no fallback to legacy production constants. */
+function GF_DocumentDemoTarget_(){
+ const p=PropertiesService.getScriptProperties();
+ const sheetId=p.getProperty('GF_DOCUMENT_DEMO_SHEET_ID'),folderId=p.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID');
+ if(p.getProperty('GF_DOCUMENT_ENV')!=='DEMO'||p.getProperty('GF_DOCUMENT_DEMO_SCRIPT_ID')!==ScriptApp.getScriptId()||!sheetId||!folderId||p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==sheetId)throw Error('demo_target_not_verified');
+ return {sheetId,folderId};
+}
+function GF_DocumentRows_(sheet,col,value){
+ const count=sheet.getLastRow()-1;if(count<=0)return [];
+ return sheet.getRange(2,col,count,1).getDisplayValues().flatMap((r,i)=>r[0]===value?[i+2]:[]);
+}
+function GF_DocumentDirectChild_(parent,child){const it=child.getParents();while(it.hasNext())if(it.next().getId()===parent.getId())return true;return false;}
+function GF_DocumentExistingFile_(folder,name){const it=folder.getFilesByName(name);if(!it.hasNext())return null;const f=it.next();if(it.hasNext())throw Error('duplicate_file');return f;}
+function GF_DocumentLink_(url,label){return '=HYPERLINK("'+url.replace(/"/g,'')+'","'+label+'")';}
