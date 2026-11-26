@@ -72,13 +72,13 @@ async function init(){
   const box=document.getElementById('lineDriverNotice'),out=document.getElementById('lineDriverNoticeText');
   box.hidden=true;out.replaceChildren();
   const docBox=document.getElementById('lineDriverDocumentNotice'),docOut=document.getElementById('lineDriverDocumentNoticeText');
-  docBox.hidden=true;docOut.replaceChildren();
+  docBox.hidden=true;docOut.replaceChildren();const uploadHost=document.createElement('div');
   try{
    const result=await readDriverVehicles();
    if(request!==noticeRequest)return;
    const docs=Array.isArray(result.document_requests)?result.document_requests.filter(d=>d&&['driver_license','residence_certificate'].includes(d.document_type)&&['requested','submitted'].includes(d.status)):[];
-   for(const d of docs){const item=document.createElement('div');item.style.cssText='padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere';item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：'+(d.status==='requested'?'再提出をお願いします':'再提出済み・スタッフ確認待ち')+(d.status==='requested'&&d.reason?'\n'+String(d.reason):'');docOut.append(item);}
-   docBox.hidden=docs.length===0;
+   for(const d of docs){const item=document.createElement('div');item.style.cssText='padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere';item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：'+(d.status==='requested'?'再提出をお願いします':'再提出済み・スタッフ確認待ち')+(d.status==='requested'&&d.reason?'\n'+String(d.reason):'');docOut.append(item);if(d.status==='requested'){const btn=document.createElement('button');btn.type='button';btn.textContent='書類を再アップロードする';btn.onclick=async()=>{try{const {mountDocumentUpload}=await import('./integrations/document-review/upload-panel.mjs');if(request!==noticeRequest)return;mountDocumentUpload(uploadHost,d,null);}catch{uploadHost.textContent='撮影画面を開けませんでした。';}};docOut.append(btn);}}
+   docOut.append(uploadHost);docBox.hidden=docs.length===0;
    const menus=driverMenuState(result);
    document.getElementById('lineDriverProgressOpen').hidden=!menus.application;
    document.getElementById('lineDriverVehiclesOpen').hidden=!menus.vehicles;
