@@ -4,6 +4,7 @@
 /** Signed server-to-server route. No public google.script.run entrypoint. */
 function GF_DocumentResubmissionRoute_(e){
  if(e?.parameter?.gf_document_bridge!=='resubmission_v1')return null;
+ if(!GF_DocumentReleaseEnabled_())return ContentService.createTextOutput(JSON.stringify({verified:false,error:'bridge_disabled'})).setMimeType(ContentService.MimeType.JSON);
  let result;
  try{
   const props=PropertiesService.getScriptProperties();
@@ -103,6 +104,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
 // ===== GF_DocumentApprovalBridge.gs =====
 /** Internal dispatcher for the existing GAS router. Never call from google.script.run. */
 function GF_DocumentApprovalBridge_(envelope,assertPrivate){
+ if(!GF_DocumentReleaseEnabled_())throw Error('bridge_disabled');
  const props=PropertiesService.getScriptProperties();
  const secret=props.getProperty('GF_DOCUMENT_BRIDGE_SECRET');
  if(!secret||secret.length<32||!envelope||typeof envelope.payload!=='string'||envelope.payload.length>8192)throw Error('bridge_not_authorized');
@@ -130,6 +132,7 @@ function GF_DocumentApprovalBridge_(envelope,assertPrivate){
 /** Call from the active doPost before existing route dispatch. */
 function GF_DocumentApprovalRoute_(e){
  if(e?.parameter?.gf_document_bridge!=='approval_v1')return null;
+ if(!GF_DocumentReleaseEnabled_())return ContentService.createTextOutput(JSON.stringify({verified:false,error:'bridge_disabled'})).setMimeType(ContentService.MimeType.JSON);
  let result;
  try{
   const raw=e?.postData?.contents;
