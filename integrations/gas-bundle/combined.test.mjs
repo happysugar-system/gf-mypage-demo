@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import fs from 'node:fs';
+const source=fs.readFileSync(new URL('./GF_DocumentCombined.gs',import.meta.url),'utf8');
+const c=vm.createContext({ContentService:{MimeType:{JSON:'json'},createTextOutput:s=>({setMimeType:()=>JSON.parse(s)})}});
+vm.runInContext(source,c);
+assert.equal(c.GF_DocumentCombinedRoute_({parameter:{}}),null);
+assert.equal(c.GF_DocumentCombinedRoute_({parameter:{gf_document_bridge:'unknown'}}).error,'unknown_bridge');
+c.GF_DocumentResubmissionRoute_=()=> 'resubmission';
+c.GF_DocumentApprovalRoute_=()=> 'approval';
+assert.equal(c.GF_DocumentCombinedRoute_({parameter:{gf_document_bridge:'resubmission_v1'}}),'resubmission');
+assert.equal(c.GF_DocumentCombinedRoute_({parameter:{gf_document_bridge:'approval_v1'}}),'approval');
+console.log('Combined router checks passed');
