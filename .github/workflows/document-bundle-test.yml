@@ -1,0 +1,19 @@
+name: Document bundle test
+on:
+  push:
+    branches: [review/driver-mypage-nov25]
+    paths: ['integrations/gas-bundle/**', '.github/workflows/document-bundle-test.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node integrations/gas-bundle/combined.test.mjs
+      - run: node integrations/gas/document-approval-bridge.test.mjs
+      - run: node integrations/gas/document-resubmission-save.test.mjs
