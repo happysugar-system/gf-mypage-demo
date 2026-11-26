@@ -10,10 +10,12 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  if(!r||r.status!=='requested'||r.verified!==true||!r.folderId||!r.driverId||!r.receiptId)throw Error('request_not_verified');
  if(!/^[0-9a-f-]{36}$/i.test(requestId))throw Error('invalid_request_id');
  const type=r.documentType,mime=blob.getContentType(),bytes=blob.getBytes();
- if(!['driver_license','residence_certificate'].includes(type)||mime!=='application/pdf'||bytes.length<5||bytes.length>10485760||bytes.slice(0,5).map(x=>String.fromCharCode(x&255)).join('')!=='%PDF-')throw Error('invalid_pdf');
+ if(!['driver_license','residence_certificate'].includes(type)||mime!=='application/pdf'||bytes.length<5||bytes.length>(type==='residence_certificate'?4000000:10485760)||bytes.slice(0,5).map(x=>String.fromCharCode(x&255)).join('')!=='%PDF-')throw Error('invalid_pdf');
  const parent=DriveApp.getFolderById(r.folderId);
  if(assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
- const dir=GF216_子フォルダ_(parent,type==='driver_license'?'免許証':'住民票');
+ const folders=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
+ if(!folders.hasNext())throw Error('existing_document_folder_missing');
+ const dir=folders.next();if(folders.hasNext())throw Error('duplicate_document_folder');
  if(assertPrivate(dir)!==true)throw Error('folder_access_not_verified');
  const name='再提出_'+requestId+'.pdf';
  const digest=b=>Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,b));
