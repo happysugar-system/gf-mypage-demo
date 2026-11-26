@@ -16,8 +16,8 @@ const required=['受付番号','確認DriverID','契約状況','免許証PDF','�
 let headers=[...required.reverse(),'追加列','備考'];
 const sheet={getLastColumn:()=>headers.length,getRange:()=>({getDisplayValues:()=>[headers]})};
 let target='test-book';
-c.GF215_BOOK_ID='test-book';
-c.PropertiesService={getScriptProperties:()=>({getProperty:()=>target})};
+c.ScriptApp={getScriptId:()=> 'test-script'};
+c.PropertiesService={getScriptProperties:()=>({getProperty:k=>({GF_DOCUMENT_ENV:'DEMO',GF_DOCUMENT_DEMO_SCRIPT_ID:'test-script',GF_DOCUMENT_DEMO_SHEET_ID:'test-book',GF_DOCUMENT_DEMO_FOLDER_ID:'test-folder',GF_DOCUMENT_APPROVAL_SHEET_ID:target})[k]})};
 c.SpreadsheetApp={openById:id=>{assert.equal(id,'test-book');return {getSheetByName:()=>sheet}}};
 assert.equal(c.GF_DocumentReceiptSheet_(),sheet);
 headers.push('受付番号');
@@ -25,5 +25,7 @@ assert.throws(()=>c.GF_DocumentReceiptSheet_(),/receipt_headers_invalid/);
 headers.pop();headers=headers.filter(x=>x!=='住民票確認');
 assert.throws(()=>c.GF_DocumentReceiptSheet_(),/receipt_headers_invalid/);
 target='wrong-book';
-assert.throws(()=>c.GF_DocumentReceiptSheet_(),/sheet_target_not_verified/);
+assert.throws(()=>c.GF_DocumentReceiptSheet_(),/demo_target_not_verified/);
 console.log('Document schema checks passed');
+
+target='test-book';c.ScriptApp={getScriptId:()=> 'other-script'};assert.throws(()=>c.GF_DocumentDemoTarget_(),/demo_target_not_verified/);
