@@ -62,7 +62,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_RESUBMISSION_WRITE_ENABLED')!=='YES')throw Error('resubmission_write_disabled');
  const target=props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
- if(!target||target!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
+ if(!target||target!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
  const req=GF_DocumentReceiptSheet_();
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const column=name=>{
@@ -76,7 +76,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
  const folder=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
  if(!folder||(r.folderId&&folder[1]!==r.folderId))throw Error('folder_not_verified');
- const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID'));
+ const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_TARGET_FOLDER_ID'));
  const parent=DriveApp.getFolderById(folder[1]);
  if(!GF_DocumentDirectChild_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
  const folders=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
@@ -177,7 +177,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  if(typeof authorizeStaff!=='function'||authorizeStaff()!==true||typeof assertPrivate!=='function')throw Error('not_authorized');
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_APPROVAL_WRITE_ENABLED')!=='YES')throw Error('approval_write_disabled');
- if(!props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')||props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
+ if(!props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')||props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
  if(!review||review.status!=='submitted'||review.verified!==true||!review.receiptId||!review.driverId||!/^[A-Za-z0-9_-]{10,200}$/.test(review.fileId))throw Error('invalid_review');
  const type=review.documentType;
  if(!['driver_license','residence_certificate'].includes(type))throw Error('invalid_document');
@@ -191,7 +191,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  const row=hits[0],cell=k=>req.getRange(row,col(k));
  if(cell('確認DriverID').getDisplayValue()!==review.driverId||['契約完了','契約締結済み','契約締結済'].includes(cell('契約状況').getDisplayValue()))throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
- const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID'));
+ const root=DriveApp.getFolderById(props.getProperty('GF_DOCUMENT_TARGET_FOLDER_ID'));
  const match=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
  if(!match)throw Error('folder_not_verified');
  const parent=DriveApp.getFolderById(match[1]);
@@ -208,7 +208,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
   start:{sheetId:req.getSheetId(),rowIndex:row-1,columnIndex:target.getColumn()-1},
   rows:[{values:[{userEnteredValue}]}],fields:'userEnteredValue'
  }});
- Sheets.Spreadsheets.batchUpdate({requests:[change(link,{formulaValue:formula}),change(check,{stringValue:'確認OK'})]},GF_DocumentDemoTarget_().sheetId);
+ Sheets.Spreadsheets.batchUpdate({requests:[change(link,{formulaValue:formula}),change(check,{stringValue:'確認OK'})]},GF_DocumentConfiguredTarget_().sheetId);
  SpreadsheetApp.flush();
  if(cell('確認DriverID').getDisplayValue()!==review.driverId||cell('受付番号').getDisplayValue()!==review.receiptId||link.getFormula()!==formula||check.getDisplayValue()!=='確認OK')throw Error('sheet_not_verified');
  return {verified:true,fileId:review.fileId};
@@ -230,7 +230,7 @@ function GF_DocumentCombinedRoute_(e){
 function GF_DocumentReceiptSheet_(){
  const p=PropertiesService.getScriptProperties();
  const id=p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
- if(!id||id!==GF_DocumentDemoTarget_().sheetId)throw Error('sheet_target_not_verified');
+ if(!id||id!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
  const req=SpreadsheetApp.openById(id).getSheetByName('車両依頼受付');
  if(!req)throw Error('receipt_sheet_missing');
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
@@ -239,11 +239,11 @@ function GF_DocumentReceiptSheet_(){
  return req;
 }
 
-/** Explicit test-only target; no fallback to legacy production constants. */
-function GF_DocumentDemoTarget_(){
+/** Explicit validation target; configuration alone does not establish isolation. Release remains hard-disabled. */
+function GF_DocumentConfiguredTarget_(){
  const p=PropertiesService.getScriptProperties();
- const sheetId=p.getProperty('GF_DOCUMENT_DEMO_SHEET_ID'),folderId=p.getProperty('GF_DOCUMENT_DEMO_FOLDER_ID');
- if(p.getProperty('GF_DOCUMENT_ENV')!=='DEMO'||p.getProperty('GF_DOCUMENT_DEMO_SCRIPT_ID')!==ScriptApp.getScriptId()||!sheetId||!folderId||p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==sheetId)throw Error('demo_target_not_verified');
+ const sheetId=p.getProperty('GF_DOCUMENT_TARGET_SHEET_ID'),folderId=p.getProperty('GF_DOCUMENT_TARGET_FOLDER_ID');
+ if(p.getProperty('GF_DOCUMENT_ENV')!=='VALIDATION'||p.getProperty('GF_DOCUMENT_TARGET_SCRIPT_ID')!==ScriptApp.getScriptId()||!sheetId||!folderId||p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID')!==sheetId)throw Error('validation_target_not_verified');
  return {sheetId,folderId};
 }
 function GF_DocumentRows_(sheet,col,value){
@@ -259,6 +259,6 @@ function GF_DocumentReleaseEnabled_(){return false;}
 /** Read-only readiness check; does not enable document writes or expose IDs. */
 function GF_DocumentLiveReadiness(){
  const result={writesDisabled:!GF_DocumentReleaseEnabled_(),driveService:typeof Drive!=='undefined',sheetsService:typeof Sheets!=='undefined',target:false,headers:false,privateRoot:false};
- try{const t=GF_DocumentDemoTarget_();result.target=true;GF_DocumentReceiptSheet_();result.headers=true;if(result.driveService)result.privateRoot=GF_DocumentPrivateDrive_(DriveApp.getFolderById(t.folderId));}catch(e){result.error='configuration_or_access_unverified';}
+ try{const t=GF_DocumentConfiguredTarget_();result.target=true;GF_DocumentReceiptSheet_();result.headers=true;if(result.driveService)result.privateRoot=GF_DocumentPrivateDrive_(DriveApp.getFolderById(t.folderId));}catch(e){result.error='configuration_or_access_unverified';}
  console.log(JSON.stringify(result));return result;
 }
