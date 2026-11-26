@@ -7,7 +7,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{
  const r=resolveVerified(requestId);
- if(!r||r.status!=='requested'||r.verified!==true||!r.folderId||!r.driverId||!r.receiptId)throw Error('request_not_verified');
+ if(!r||r.status!=='requested'||r.verified!==true||!r.driverId||!r.receiptId)throw Error('request_not_verified');
  if(!/^[0-9a-f-]{36}$/i.test(requestId))throw Error('invalid_request_id');
  const type=r.documentType,mime=blob.getContentType(),bytes=blob.getBytes();
  if(!['driver_license','residence_certificate'].includes(type)||mime!=='application/pdf'||bytes.length<5||bytes.length>(type==='residence_certificate'?4000000:10485760)||bytes.slice(0,5).map(x=>String.fromCharCode(x&255)).join('')!=='%PDF-')throw Error('invalid_pdf');
@@ -27,9 +27,9 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  if(cell('確認DriverID').getDisplayValue()!==r.driverId||cell('契約状況').getDisplayValue()==='契約完了')throw Error('receipt_not_editable');
  if(type==='residence_certificate'&&/郵送/.test(cell('住民票PDF').getDisplayValue()+' '+cell('書類状態').getDisplayValue()))throw Error('postal_no_upload_required');
  const folder=/^https:\/\/drive\.google\.com\/drive\/folders\/([\w-]+)$/.exec(String(cell('書類フォルダ').getValue()));
- if(!folder||folder[1]!==r.folderId)throw Error('folder_not_verified');
+ if(!folder||(r.folderId&&folder[1]!==r.folderId))throw Error('folder_not_verified');
  const root=DriveApp.getFolderById(props.getProperty('GF216_PROD_FOLDER_ID'));
- const parent=DriveApp.getFolderById(r.folderId);
+ const parent=DriveApp.getFolderById(folder[1]);
  if(!GF216_直下_(root,parent)||assertPrivate(root)!==true||assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
  const folders=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
  if(!folders.hasNext())throw Error('existing_document_folder_missing');
