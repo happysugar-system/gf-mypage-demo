@@ -61,7 +61,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  if(props.getProperty('GF_DOCUMENT_RESUBMISSION_WRITE_ENABLED')!=='YES')throw Error('resubmission_write_disabled');
  const target=props.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
  if(!target||target!==GF215_BOOK_ID)throw Error('sheet_target_not_verified');
- const req=GF215_シート検査_().req;
+ const req=GF_DocumentReceiptSheet_();
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const column=name=>{
   if(headers.filter(h=>h===name).length!==1)throw Error('receipt_headers_invalid');
@@ -178,7 +178,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  if(!['driver_license','residence_certificate'].includes(type))throw Error('invalid_document');
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{
- const req=GF215_シート検査_().req;
+ const req=GF_DocumentReceiptSheet_();
  const h=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const col=k=>{if(h.filter(x=>x===k).length!==1)throw Error('invalid_header_'+k);return h.indexOf(k)+1;};
  const hits=GF215_一致行_(req,col('受付番号'),review.receiptId);
@@ -217,4 +217,17 @@ function GF_DocumentCombinedRoute_(e){
  if(action==='resubmission_v1')return GF_DocumentResubmissionRoute_(e);
  if(action==='approval_v1')return GF_DocumentApprovalRoute_(e);
  return ContentService.createTextOutput(JSON.stringify({verified:false,error:'unknown_bridge'})).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Document-only schema validation; additional columns and column order are permitted. */
+function GF_DocumentReceiptSheet_(){
+ const p=PropertiesService.getScriptProperties();
+ const id=p.getProperty('GF_DOCUMENT_APPROVAL_SHEET_ID');
+ if(!id||typeof GF215_BOOK_ID==='undefined'||id!==GF215_BOOK_ID)throw Error('sheet_target_not_verified');
+ const req=SpreadsheetApp.openById(id).getSheetByName('車両依頼受付');
+ if(!req)throw Error('receipt_sheet_missing');
+ const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
+ const required=['受付番号','確認DriverID','契約状況','免許証PDF','住民票PDF','書類状態','書類フォルダ','免許証確認','住民票確認'];
+ for(const name of required)if(headers.filter(h=>h===name).length!==1)throw Error('receipt_headers_invalid');
+ return req;
 }
