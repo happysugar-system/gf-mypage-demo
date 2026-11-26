@@ -14,8 +14,8 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const parent=DriveApp.getFolderById(r.folderId);
  if(assertPrivate(parent)!==true)throw Error('folder_access_not_verified');
  const folders=parent.getFoldersByName(type==='driver_license'?'免許証':'住民票');
- if(!folders.hasNext())throw Error('existing_document_folder_missing');
- const dir=folders.next();if(folders.hasNext())throw Error('duplicate_document_folder');
+ const dir=folders.hasNext()?folders.next():parent.createFolder(type==='driver_license'?'免許証':'住民票');
+ if(folders.hasNext())throw Error('duplicate_document_folder');
  if(assertPrivate(dir)!==true)throw Error('folder_access_not_verified');
  const name='再提出_'+requestId+'.pdf';
  const digest=b=>Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,b));
