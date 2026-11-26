@@ -62,7 +62,7 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_RESUBMISSION_WRITE_ENABLED')!=='YES')throw Error('resubmission_write_disabled');
  const target=GF_DocumentConfiguredTarget_().sheetId;
- if(!target||target!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
+ if(!target)throw Error('sheet_target_not_verified');
  const req=GF_DocumentReceiptSheet_();
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
  const column=name=>{
@@ -177,7 +177,7 @@ function GF_DocumentApprovalSave_(review,authorizeStaff,assertPrivate){
  if(typeof authorizeStaff!=='function'||authorizeStaff()!==true||typeof assertPrivate!=='function')throw Error('not_authorized');
  const props=PropertiesService.getScriptProperties();
  if(props.getProperty('GF_DOCUMENT_APPROVAL_WRITE_ENABLED')!=='YES')throw Error('approval_write_disabled');
- if(!GF_DocumentConfiguredTarget_().sheetId||GF_DocumentConfiguredTarget_().sheetId!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
+ GF_DocumentConfiguredTarget_();
  if(!review||review.status!=='submitted'||review.verified!==true||!review.receiptId||!review.driverId||!/^[A-Za-z0-9_-]{10,200}$/.test(review.fileId))throw Error('invalid_review');
  const type=review.documentType;
  if(!['driver_license','residence_certificate'].includes(type))throw Error('invalid_document');
@@ -230,7 +230,7 @@ function GF_DocumentCombinedRoute_(e){
 function GF_DocumentReceiptSheet_(){
  const p=PropertiesService.getScriptProperties();
  const id=GF_DocumentConfiguredTarget_().sheetId;
- if(!id||id!==GF_DocumentConfiguredTarget_().sheetId)throw Error('sheet_target_not_verified');
+ if(!id)throw Error('sheet_target_not_verified');
  const req=SpreadsheetApp.openById(id).getSheetByName('車両依頼受付');
  if(!req)throw Error('receipt_sheet_missing');
  const headers=req.getRange(1,1,1,req.getLastColumn()).getDisplayValues()[0];
@@ -241,7 +241,6 @@ function GF_DocumentReceiptSheet_(){
 
 /** Explicit validation target; configuration alone does not establish isolation. Release remains hard-disabled. */
 function GF_DocumentConfiguredTarget_(){
- const p=PropertiesService.getScriptProperties();
  const sheetId='1VVgcHZcrYbwQUkJ9ZRxzJGT9na8hdd7i53MH-rW4jI4',folderId='1krn-bAymyYGNXWhEkaihntSFhE8ANlQA';
  if(ScriptApp.getScriptId()!=='1PgNqXboq2gTw7DogYbJTuRsllaj6CeD0YQKGeid_ZEs2NxOdGoTUMd96'||対象スプレッドシートを開く_().getId()!==sheetId)throw Error('target_not_verified');
  return {sheetId,folderId};
@@ -260,5 +259,13 @@ function GF_DocumentReleaseEnabled_(){return false;}
 function GF_DocumentLiveReadiness(){
  const result={writesDisabled:!GF_DocumentReleaseEnabled_(),driveService:typeof Drive!=='undefined',sheetsService:typeof Sheets!=='undefined',target:false,headers:false,privateRoot:false};
  try{const t=GF_DocumentConfiguredTarget_();result.target=true;GF_DocumentReceiptSheet_();result.headers=true;if(result.driveService)result.privateRoot=GF_DocumentPrivateDrive_(DriveApp.getFolderById(t.folderId));}catch(e){result.error='configuration_or_access_unverified';}
+ console.log(JSON.stringify(result));return result;
+}
+
+/** Local only: report permission categories, never email addresses or document contents. */
+function GF_DocumentPermissionCheck(){
+ const t=GF_DocumentConfiguredTarget_(),root=DriveApp.getFolderById(t.folderId);
+ const result={privateSharing:root.getSharingAccess()===DriveApp.Access.PRIVATE,individual:0,other:0,missingEmail:0,allowlistConfigured:!!PropertiesService.getScriptProperties().getProperty('GF_DOCUMENT_DRIVE_ALLOWED_EMAILS')};
+ let pageToken;do{const page=Drive.Permissions.list(root.getId(),{supportsAllDrives:true,pageToken,fields:'nextPageToken,permissions(type,emailAddress,deleted)'});for(const p of page.permissions||[]){if(p.deleted)continue;if(p.type==='user'){result.individual++;if(!p.emailAddress)result.missingEmail++;}else result.other++;}pageToken=page.nextPageToken;}while(pageToken);
  console.log(JSON.stringify(result));return result;
 }
