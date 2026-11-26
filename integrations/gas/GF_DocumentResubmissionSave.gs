@@ -18,11 +18,12 @@ function GF_DocumentResubmissionSave_(requestId,blob,resolveVerified,assertPriva
  const dir=folders.next();
  if(folders.hasNext())throw Error('duplicate_document_folder');
  if(assertPrivate(dir)!==true)throw Error('folder_access_not_verified');
- const name='再提出_'+requestId+'.pdf';
  const digest=b=>Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,b));
+ const name='再提出_'+requestId+'_'+digest(bytes).replace(/=+$/,'')+'.pdf';
  const existing=GF216_既存ファイル_(dir,name);
- if(existing){if(digest(existing.getBlob().getBytes())!==digest(bytes))throw Error('submission_conflict');return {fileId:existing.getId(),reused:true};}
+ if(existing){if(digest(existing.getBlob().getBytes())!==digest(bytes))throw Error('submission_conflict');return {fileId:existing.getId(),reused:true,verified:true};}
  const saved=dir.createFile(blob.copyBlob().setName(name));
- return {fileId:saved.getId(),reused:false};
+ if(digest(saved.getBlob().getBytes())!==digest(bytes)||assertPrivate(dir)!==true)throw Error('saved_file_not_verified');
+ return {fileId:saved.getId(),reused:false,verified:true};
  }finally{lock.releaseLock();}
 }
