@@ -99,7 +99,9 @@ async function init(){
  if(request===noticeRequest){item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：再提出済み・スタッフ確認待ち';btn.remove();}
  return result;
  });}catch{if(request===noticeRequest&&openSequence===documentOpenSequence)uploadHost.textContent='撮影画面を開けませんでした。';}};docOut.append(btn);}}
-   docOut.append(uploadHost);docBox.hidden=docs.length===0;
+   if(!Array.isArray(documents.document_requests)){const retry=document.createElement('button');retry.type='button';retry.textContent='書類の通知を再取得';retry.onclick=()=>void refreshDriverNotices();docOut.append(retry);}
+   else if(docs.some(d=>d.status==='requested')&&documents.document_upload_enabled!==true){const note=document.createElement('p');note.textContent='再アップロードは現在準備中です。';docOut.append(note);}
+   docOut.append(uploadHost);docBox.hidden=docs.length===0&&Array.isArray(documents.document_requests);
    const menus=driverMenuState(result);
    document.getElementById('lineDriverProgressOpen').hidden=!menus.application;
    document.getElementById('lineDriverVehiclesOpen').hidden=!menus.vehicles;
@@ -110,6 +112,7 @@ async function init(){
    box.hidden=notices.length===0;
   }catch{/* notices must not block home */}
  }
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&!home.hidden&&!disposeDocumentUpload)void refreshDriverNotices();});
  const progressPanel=document.getElementById('lineDriverProgressPanel');
  document.getElementById('lineDriverProgressOpen').onclick=async()=>{
   if(!progressPanel.hidden){progressPanel.hidden=true;return;}
