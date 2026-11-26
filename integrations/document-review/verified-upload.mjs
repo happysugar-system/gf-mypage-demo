@@ -13,3 +13,10 @@ export async function submitVerifiedDocument({requestId,driverId,bytes,mime,load
  if(result?.status!=='submitted')throw Error('reconciliation_required');
  return {status:'submitted'};
 }
+
+// Server-only adapter; db must be the authenticated server's service client.
+export async function recordDriveAttempt(db,verified,fileId){
+ const {data,error}=await db.rpc('gf_record_document_attempt',{p_request:verified.requestId,p_driver:verified.driverId,p_file:fileId});
+ if(error||typeof data!=='string'||!data)throw Error('reconciliation_required');
+ return {status:'submitted',attemptId:data};
+}
