@@ -1,0 +1,20 @@
+name: Document GAS regression
+on:
+  push:
+    branches: ['review/driver-mypage-nov25']
+    paths:
+      - 'integrations/gas/GF_Document*.gs'
+      - 'integrations/gas/document-*.test.mjs'
+      - '.github/workflows/document-gas-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test integrations/gas/document-approval-bridge.test.mjs integrations/gas/document-resubmission-save.test.mjs
