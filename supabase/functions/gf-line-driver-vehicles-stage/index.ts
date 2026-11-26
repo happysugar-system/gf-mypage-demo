@@ -1,3 +1,4 @@
+import {sendResubmission} from '../_shared/document-resubmission-bridge.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.57.0';
 const origin='https://happysugar-system.github.io';
 Deno.serve(async req=>{
@@ -6,7 +7,7 @@ const reply=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status
 if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
 if(req.method!=='POST'||req.headers.get('origin')!==origin)return reply({error:'Forbidden'},403);
 try{
-const b=await req.json();if(typeof b.line_id_token!=='string'||b.line_id_token.length<100||b.line_id_token.length>8192)return reply({error:'Invalid request'},400);
+const raw=await req.text();if(raw.length>14500000)return reply({error:'Invalid request'},413);const b=JSON.parse(raw);if(typeof b.line_id_token!=='string'||b.line_id_token.length<100||b.line_id_token.length>8192)return reply({error:'Invalid request'},400);
 const r=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.line_id_token,client_id:'2012058414'}),signal:AbortSignal.timeout(10000)});
 if(!r.ok)return reply({error:'LINE認証の有効期限が切れました'},401);
 const line=await r.json();if(line.iss!=='https://access.line.me'||String(line.aud)!=='2012058414'||!/^U[0-9a-fA-F]{32}$/.test(String(line.sub))||!Number.isFinite(line.exp)||line.exp<=Date.now()/1000)return reply({error:'LINE認証が無効です'},401);
@@ -16,6 +17,25 @@ if(le||links?.length!==1)return reply({error:'ドライバーの承認が必要�
 const driverId=links[0].subject_id;
 const {data:driver,error:de}=await db.from('gf_driver_match_master_prod').select('driver_id').eq('driver_id',driverId).maybeSingle();
 if(de||!driver)return reply({error:'ドライバー情報がありません'},404);
+if(b.action==='document_resubmission_save'){
+ if(Deno.env.get('GF_DOCUMENT_RESUBMISSION_BRIDGE_ENABLED')!=='YES')return reply({error:'再提出は準備中です'},503);
+ if(typeof b.request_id!=='string'||!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(b.request_id)||typeof b.pdf_base64!=='string'||b.pdf_base64.length>13981016||!/^[A-Za-z0-9+/]+={0,2}$/.test(b.pdf_base64))return reply({error:'Invalid request'},400);
+ const {data:review,error:re}=await db.from('gf_driver_document_review_requests').select('id,receipt_id,driver_id,document_type,status').eq('id',b.request_id).eq('driver_id',driverId).maybeSingle();
+ if(re||!review||review.status!=='requested')return reply({error:'再提出依頼を確認できません'},409);
+ const {data:receipt,error:rr}=await db.from('gf_mypage_applications_prod').select('receipt_id,contract_status').eq('receipt_id',review.receipt_id).eq('driver_id',driverId).maybeSingle();
+ if(rr||!receipt||['契約完了','契約締結済み','契約締結済'].includes(String(receipt.contract_status||'').trim()))return reply({error:'再提出対象外です'},409);
+ if(!['driver_license','residence_certificate'].includes(review.document_type))return reply({error:'Invalid document'},400);
+ const max=review.document_type==='residence_certificate'?4000000:10485760;
+ if(b.pdf_base64.length>4*Math.ceil(max/3))return reply({error:'PDF容量超過'},413);
+ let pdf:Uint8Array;
+ try{pdf=Uint8Array.from(atob(b.pdf_base64),c=>c.charCodeAt(0));}catch{return reply({error:'Invalid PDF'},400);}
+ if(pdf.length>max||new TextDecoder().decode(pdf.subarray(0,5))!=='%PDF-')return reply({error:'Invalid PDF'},400);
+ const saved=await sendResubmission({id:review.id,receiptId:review.receipt_id,driverId,documentType:review.document_type,status:'requested',verified:true},pdf);
+ const {data:attempt,error:recordError}=await db.rpc('gf_record_document_attempt',{p_request:review.id,p_driver:driverId,p_file:saved.fileId});
+ if(recordError||!attempt)return reply({error:'提出結果を確認できません。再提出状況を更新してください'},409);
+ return reply({status:'submitted'});
+}
+if(b.action!==undefined&&b.action!=='read')return reply({error:'Invalid action'},400);
 const {data:apps,error:ae}=await db.from('gf_mypage_applications_prod').select('receipt_id,driver_id,received_at,reception_status,contract_status,contract_updated_at,delivery_wish,start_wish,updated_at').eq('driver_id',driverId).order('updated_at',{ascending:false}).order('receipt_id',{ascending:false}).limit(1);if(ae)return reply({error:'申込情報を取得できませんでした'},503);
 const {data:vehicles,error:ve}=await db.from('gf_vehicles').select('vehicle_id,vehicle_number,vehicle_data').eq('vehicle_data->>DriverID',driverId).limit(15);
 if(ve)return reply({error:'車両情報を取得できませんでした'},503);
