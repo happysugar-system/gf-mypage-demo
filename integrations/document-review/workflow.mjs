@@ -14,5 +14,5 @@ export function documentReviewTransition(record, action, actor, input={}){
  throw Error('invalid_transition');
 }
 export function driverDocumentNotices(records,driverId){
- return records.filter(r=>r.driver_id===driverId&&['requested','submitted'].includes(r.status)).map(r=>({id:r.id,document_type:r.document_type,reason:r.reason,status:r.status}));
+ return records.filter(r=>r.driver_id===driverId&&['requested','submitted','approving'].includes(r.status)).map(r=>({id:r.id,document_type:r.document_type,reason:r.reason,status:r.status==='approving'?'submitted':r.status}));
 }
