@@ -17,6 +17,13 @@ if(le||links?.length!==1)return reply({error:'ドライバーの承認が必要�
 const driverId=links[0].subject_id;
 const {data:driver,error:de}=await db.from('gf_driver_match_master_prod').select('driver_id').eq('driver_id',driverId).maybeSingle();
 if(de||!driver)return reply({error:'ドライバー情報がありません'},404);
+if(b.action==='document_requests_read'){
+ const {data,error}=await db.from('gf_driver_document_review_requests')
+   .select('id,document_type,reason,status').eq('driver_id',driverId)
+   .in('status',['requested','submitted','approving']).order('created_at',{ascending:false}).limit(50);
+ if(error)return reply({error:'書類の通知を取得できませんでした'},503);
+ return reply({document_requests:(data||[]).map(x=>({...x,status:x.status==='approving'?'submitted':x.status})),document_upload_enabled:Deno.env.get('GF_DOCUMENT_RESUBMISSION_BRIDGE_ENABLED')==='YES'});
+}
 if(b.action==='document_resubmission_save'){
  if(Deno.env.get('GF_DOCUMENT_RESUBMISSION_BRIDGE_ENABLED')!=='YES')return reply({error:'再提出は準備中です'},503);
  if(typeof b.request_id!=='string'||!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(b.request_id)||typeof b.pdf_base64!=='string'||b.pdf_base64.length>13981016||!/^[A-Za-z0-9+/]+={0,2}$/.test(b.pdf_base64))return reply({error:'Invalid request'},400);

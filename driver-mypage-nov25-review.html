@@ -55,7 +55,7 @@ async function init(){
   if(driverReadInFlight)return driverReadInFlight;
   const token=liff.getIDToken();if(!token)return Promise.reject(Error('LINE認証情報がありません'));
   driverReadInFlight=(async()=>{
-   const response=await fetch((true?'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-detail-review':'https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
+   const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-detail-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({line_id_token:token})});
    const result=await response.json();if(!response.ok)throw Error(result.error||'車両情報を取得できません');
    return result;
   })().finally(()=>{driverReadInFlight=null;});
@@ -66,6 +66,13 @@ async function init(){
  const active=vehicles.filter(v=>['貸出中','代車'].includes(String(v['区分/ステータス']||'').trim()));
  return {application:!!result.application,vehicles:active.length>0,active};
 }
+ const documentEndpoint='https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage';
+ async function readDocumentRequests(){
+  const token=liff.getIDToken();if(!token)throw Error('LINE認証情報がありません');
+  const response=await fetch(documentEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'document_requests_read',line_id_token:token}),signal:AbortSignal.timeout(12000)});
+  if(!response.ok)throw Error('書類の通知を取得できませんでした');
+  return response.json();
+ }
  let noticeRequest=0,disposeDocumentUpload=null,documentOpenSequence=0;
  async function refreshDriverNotices(){
   const request=++noticeRequest;documentOpenSequence++;disposeDocumentUpload?.();disposeDocumentUpload=null;
@@ -74,10 +81,10 @@ async function init(){
   const docBox=document.getElementById('lineDriverDocumentNotice'),docOut=document.getElementById('lineDriverDocumentNoticeText');
   docBox.hidden=true;docOut.replaceChildren();const uploadHost=document.createElement('div');
   try{
-   const result=await readDriverVehicles();
+   const [result,documents]=await Promise.all([readDriverVehicles().catch(()=>({})),readDocumentRequests().catch(()=>({}))]);
    if(request!==noticeRequest)return;
-   const docs=Array.isArray(result.document_requests)?result.document_requests.filter(d=>d&&['driver_license','residence_certificate'].includes(d.document_type)&&['requested','submitted'].includes(d.status)):[];
-   for(const d of docs){const item=document.createElement('div');item.style.cssText='padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere';item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：'+(d.status==='requested'?'再提出をお願いします':'再提出済み・スタッフ確認待ち')+(d.status==='requested'&&d.reason?'\n'+String(d.reason):'');docOut.append(item);if(d.status==='requested'){const btn=document.createElement('button');btn.type='button';btn.textContent='書類を再アップロードする';btn.onclick=async()=>{const openSequence=++documentOpenSequence;try{const {mountDocumentUpload}=await import('./integrations/document-review/upload-panel.mjs');if(request!==noticeRequest||openSequence!==documentOpenSequence)return;disposeDocumentUpload?.();disposeDocumentUpload=mountDocumentUpload(uploadHost,d,async(requestId,file)=>{
+   const docs=Array.isArray(documents.document_requests)?documents.document_requests.filter(d=>d&&['driver_license','residence_certificate'].includes(d.document_type)&&['requested','submitted'].includes(d.status)):[];
+   for(const d of docs){const item=document.createElement('div');item.style.cssText='padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere';item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：'+(d.status==='requested'?'再提出をお願いします':'再提出済み・スタッフ確認待ち')+(d.status==='requested'&&d.reason?'\n'+String(d.reason):'');docOut.append(item);if(d.status==='requested'&&documents.document_upload_enabled===true){const btn=document.createElement('button');btn.type='button';btn.textContent='書類を再アップロードする';btn.onclick=async()=>{const openSequence=++documentOpenSequence;try{const {mountDocumentUpload}=await import('./integrations/document-review/upload-panel.mjs');if(request!==noticeRequest||openSequence!==documentOpenSequence)return;disposeDocumentUpload?.();disposeDocumentUpload=mountDocumentUpload(uploadHost,d,async(requestId,file)=>{
  if(request!==noticeRequest||openSequence!==documentOpenSequence||requestId!==d.id)throw Error('画面を更新して再度お試しください');
  const token=liff.getIDToken();if(!token)throw Error('LINE認証情報がありません');
  const max=d.document_type==='residence_certificate'?4000000:10485760;
@@ -86,7 +93,7 @@ async function init(){
  if(new TextDecoder().decode(bytes.subarray(0,5))!=='%PDF-')throw Error('PDF形式を確認してください');
  let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
  if(request!==noticeRequest||openSequence!==documentOpenSequence)throw Error('画面を更新して再度お試しください');
- const response=await fetch('https://tgxrnrqxafytyqfwwsag.supabase.co/functions/v1/gf-line-driver-vehicles-stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'document_resubmission_save',line_id_token:token,request_id:requestId,pdf_base64:btoa(binary)}),signal:AbortSignal.timeout(90000)});
+ const response=await fetch(documentEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'document_resubmission_save',line_id_token:token,request_id:requestId,pdf_base64:btoa(binary)}),signal:AbortSignal.timeout(90000)});
  const result=await response.json();
  if(!response.ok||result.status!=='submitted')throw Error(result.error||'提出結果を確認できませんでした');
  if(request===noticeRequest){item.textContent=(d.document_type==='driver_license'?'免許証':'住民票')+'：再提出済み・スタッフ確認待ち';btn.remove();}
