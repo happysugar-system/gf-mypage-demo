@@ -8,8 +8,9 @@ export async function approveDocument({requestId,staff,resolve,writeAndVerify,ma
  if(!r||r.id!==requestId||r.status!=='submitted'||r.verified!==true||!r.receiptId||!r.driverId||!r.fileId||!/^[A-Za-z0-9_-]{10,}$/.test(r.fileId))throw Error('submission_not_verified');
  const fields={driver_license:['免許証PDF','免許証確認'],residence_certificate:['住民票PDF','住民票確認']}[r.documentType];
  if(!fields)throw Error('invalid_document');
- const changes={[fields[0]]:'https://drive.google.com/file/d/'+r.fileId+'/view',[fields[1]]:'確認OK'};
- const saved=await writeAndVerify({receiptId:r.receiptId,driverId:r.driverId,changes});
+ const label=r.documentType==='driver_license'?'🪪免許証を見る':'📄住民票を見る';
+ const changes={[fields[0]]:'=HYPERLINK("https://drive.google.com/file/d/'+r.fileId+'/view","'+label+'")',[fields[1]]:'確認OK'};
+ const saved=await writeAndVerify({receiptId:r.receiptId,driverId:r.driverId,changes,valueInputOption:'USER_ENTERED'});
  if(saved!==true)throw Error('sheet_not_verified');
  const result=await markApproved({id:r.id,receiptId:r.receiptId,driverId:r.driverId,expectedStatus:'submitted',fileId:r.fileId});
  if(result?.status!=='approved')throw Error('reconciliation_required');
